@@ -276,6 +276,23 @@ class TurnOrchestrator:
                 },
             )
 
+        elif (
+            proposal.rationale_code in {"affirmation", "non_specific_confirmation"}
+            and proposal.candidate_value is None
+            and state.pending_field is not None
+        ):
+            # If the previous response was interrupted, users often say
+            # "yes" or "okay" to indicate that they are ready to continue.
+            # There is no pending write anymore, so do not send this through
+            # the generic fallback. Re-ask the current field instead.
+            prompt = state.last_safe_prompt or "Let us continue your draft."
+            plan = ResponsePlan(
+                purpose="resume_prompt",
+                message_segments=[prompt],
+                resume_instruction=prompt,
+            )
+            plan = self.planner.guard.evaluate(plan)
+
         else:
             if proposal.rationale_code == "discard_pending_write":
                 state = self.state_machine.discard_pending_write(state)

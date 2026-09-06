@@ -142,3 +142,54 @@ async def test_confirmed_amount_correction_asks_next_unanswered_field(
     response = " ".join(result.response_plan.message_segments)
     assert "Next question" in response
     assert "monthly take-home income" in response
+
+
+async def test_affirmation_after_interrupted_correction_repeats_current_prompt(
+    application,
+    conversation,
+    transcript_factory,
+    proposal_factory,
+):
+    from conftest import ScriptedInterpreter, build_test_orchestrator
+
+    from saarthi.storage.repository import InMemoryStateRepository
+
+    application.fields[FieldId.REQUESTED_AMOUNT] = CommittedFieldValue(
+        field_id=FieldId.REQUESTED_AMOUNT,
+        typed_value=80000,
+        source_turn_id="earlier-turn",
+        source_span="eighty thousand",
+        normalizer_version="test",
+        validator_version="test",
+        committed_at_revision=1,
+        last_change_kind=ChangeKind.INITIAL,
+    )
+    application.revision = 1
+    conversation.pending_field = FieldId.CITY
+    conversation.last_safe_prompt = "Which city should the demonstration draft record?"
+    conversation.linked_application_revision = 1
+    interpreter = ScriptedInterpreter(
+        {
+            "okay": proposal_factory(
+                route=TurnRoute.FIELD_ANSWER,
+                acts=[TurnAct.AMBIGUOUS],
+                target=FieldId.CITY,
+                value=None,
+                explicit_write=False,
+                rationale="non_specific_confirmation",
+            )
+        }
+    )
+    repository = InMemoryStateRepository()
+    await repository.create(application, conversation)
+    orchestrator = build_test_orchestrator(repository, interpreter)
+
+    result = await orchestrator.process_final_transcript(
+        transcript_factory("okay")
+    )
+
+    assert result.response_plan.purpose == "resume_prompt"
+    assert result.response_plan.message_segments == [
+        "Which city should the demonstration draft record?"
+    ]
+    assert result.draft.revision == 1
