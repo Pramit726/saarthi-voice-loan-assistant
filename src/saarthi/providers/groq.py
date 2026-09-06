@@ -13,7 +13,9 @@ class InterpretationPayload(BaseModel):
     acts: list[str]
     route: str
     target_field: str | None
-    candidate_value: str | int | float | None
+    # JSON Schema represents both integer and float values as `number` for this
+    # contract. Keeping both in a union is rejected by Groq as ambiguous.
+    candidate_value: str | float | None
     source_span: str | None
     reference_resolution: str | None
     control: str | None
