@@ -1,7 +1,10 @@
 from saarthi.domain.contracts import TurnProposal
 from saarthi.domain.enums import FieldId, TurnAct, TurnRoute
 from saarthi.providers.groq import InterpretationPayload
-from saarthi.services.interpreter import RetrievedFewShotInterpreter
+from saarthi.services.interpreter import (
+    RetrievedFewShotInterpreter,
+    control_command_for_text,
+)
 
 
 def payload(**overrides) -> InterpretationPayload:
@@ -118,6 +121,11 @@ def test_voice_control_variants_are_resolved_without_llm(transcript_factory):
         assert result is not None
         assert result.route is TurnRoute.CONTROL
         assert result.explicit_write is False
+
+
+def test_control_text_normalization_handles_voice_spacing():
+    assert control_command_for_text("  Repeat   that. ").value == "repeat"
+    assert control_command_for_text("Show my draft").value == "show_summary"
 
 
 async def test_cancel_that_rejects_pending_change_instead_of_cancelling_draft(

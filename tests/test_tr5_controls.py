@@ -4,6 +4,7 @@ from saarthi.domain.enums import (
     DeliveryStatus,
     JobKind,
     JobStatus,
+    SessionStatus,
     TurnRoute,
 )
 from saarthi.domain.state import ConversationStateMachine
@@ -28,6 +29,7 @@ def test_stop_cancels_active_work_and_queued_audio(conversation):
     assert stopped.generation_id == 1
     assert stopped.active_jobs["job"].status is JobStatus.CANCELLED
     assert stopped.output_queue == []
+    assert stopped.status is SessionStatus.ACTIVE
 
 
 def test_pause_preserves_pending_field_and_revision(conversation):

@@ -24,6 +24,7 @@ from saarthi.config import get_settings
 from saarthi.domain.contracts import FinalTranscript, TraceEvent, new_id, utc_now
 from saarthi.domain.enums import DeliveryStatus
 from saarthi.runtime import build_runtime
+from saarthi.services.interpreter import control_command_for_text
 
 logger = logging.getLogger("saarthi.voice")
 load_dotenv()
@@ -273,19 +274,24 @@ async def entrypoint(ctx: JobContext) -> None:
         text = " ".join(str(getattr(event, "transcript", "")).split())
         if not text:
             return
+        is_final = bool(getattr(event, "is_final", False))
+        command = control_command_for_text(text)
+
+        # Do not force-cancel playback for every interim ASR fragment. VAD
+        # and LiveKit already handle ordinary barge-in, and cancelling here
+        # makes a false/interim transcript permanently cut off the response.
+        # STOP is the one command that must stop local playback immediately.
+        if not is_final:
+            if command is not None and command.value == "stop":
+                active.interrupt()
+            return
+
+        # At final-turn time, invalidate the previous generation before the
+        # new turn enters the guarded orchestrator.
         if active.speech is not None:
             active.interrupt()
-        if bool(getattr(event, "is_final", False)):
-            task = asyncio.create_task(process_final_turn(text))
-            active.task = task
-
-    @voice_session.on("user_state_changed")
-    def on_user_state_changed(event) -> None:
-        if (
-            str(getattr(event, "new_state", "")) == "speaking"
-            and active.speech is not None
-        ):
-            active.interrupt()
+        task = asyncio.create_task(process_final_turn(text))
+        active.task = task
 
     try:
         await ctx.connect()

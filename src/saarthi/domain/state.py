@@ -133,9 +133,14 @@ class ConversationStateMachine:
         self._cancel_old_jobs(updated)
         self._cancel_output(updated)
 
-        if command in {ControlCommand.STOP, ControlCommand.CANCEL}:
+        if command is ControlCommand.CANCEL:
             updated.status = SessionStatus.CANCELLED
             updated.phase = ConversationPhase.STOPPED
+        elif command is ControlCommand.STOP:
+            # STOP is a playback/work-generation control. It must not cancel
+            # the draft or make the borrower restart the session. The current
+            # phase and pending field remain available for the next turn.
+            pass
         elif command is ControlCommand.PAUSE:
             self._save_resume_checkpoint(updated)
             updated.status = SessionStatus.PAUSED

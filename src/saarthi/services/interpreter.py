@@ -46,6 +46,16 @@ CONTROL_PATTERNS: tuple[tuple[ControlCommand, re.Pattern[str]], ...] = (
 )
 
 
+def control_command_for_text(text: str) -> ControlCommand | None:
+    """Resolve a short spoken control without involving the LLM."""
+
+    normalized = " ".join(text.casefold().strip().split())
+    for command, pattern in CONTROL_PATTERNS:
+        if pattern.search(normalized):
+            return command
+    return None
+
+
 @dataclass(frozen=True)
 class FewShotExample:
     text: str
@@ -217,17 +227,17 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
 
     @staticmethod
     def _direct_control(transcript: FinalTranscript) -> TurnProposal | None:
-        for command, pattern in CONTROL_PATTERNS:
-            if pattern.search(transcript.text):
-                return TurnProposal(
-                    source_transcript_id=transcript.transcript_id,
-                    acts=[TurnAct.CONTROL],
-                    route=TurnRoute.CONTROL,
-                    control=command,
-                    uncertainty=0,
-                    rationale_code="deterministic_control_match",
-                    explicit_write=False,
-                )
+        command = control_command_for_text(transcript.text)
+        if command is not None:
+            return TurnProposal(
+                source_transcript_id=transcript.transcript_id,
+                acts=[TurnAct.CONTROL],
+                route=TurnRoute.CONTROL,
+                control=command,
+                uncertainty=0,
+                rationale_code="deterministic_control_match",
+                explicit_write=False,
+            )
         return None
 
     @staticmethod
@@ -238,7 +248,10 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
         if pending is None:
             return None
         text = transcript.text.casefold().strip()
-        if re.fullmatch(r"(?:yes|yes please|confirm|correct|haan|hanji)[.! ]*", text):
+        if re.fullmatch(
+            r"(?:yes|yes please|confirm|correct|haan|hanji|yeah|yep|okay|ok|sure|do it|change it|update it)(?: please| now| go ahead)?[.! ]*",
+            text,
+        ):
             return TurnProposal(
                 source_transcript_id=transcript.transcript_id,
                 acts=list(pending.acts),
@@ -255,7 +268,10 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
                 rationale_code="confirmed_pending_write",
                 explicit_write=True,
             )
-        if re.fullmatch(r"(?:no|do not|don't|cancel that|nahi)[.! ]*", text):
+        if re.fullmatch(
+            r"(?:no|no thanks|do not|don't|cancel that|keep it|leave it|don't change it|nahi)[.! ]*",
+            text,
+        ):
             return TurnProposal(
                 source_transcript_id=transcript.transcript_id,
                 acts=[TurnAct.AMBIGUOUS],
