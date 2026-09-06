@@ -1,0 +1,17 @@
+[
+  {"id": "S01", "name": "normal field answer", "hard_assertion": "one field changes and revision increments once"},
+  {"id": "S02", "name": "contextual field doubt", "hard_assertion": "no field changes and the same pending field resumes"},
+  {"id": "S03", "name": "product-cost doubt", "hard_assertion": "every released claim has an approved fact or calculation ID"},
+  {"id": "S04", "name": "correction of current field", "hard_assertion": "only the confirmed target changes"},
+  {"id": "S05", "name": "correction of earlier field", "hard_assertion": "earlier target changes and original checkpoint resumes"},
+  {"id": "S06", "name": "answer combined with a doubt", "hard_assertion": "candidate remains provisional until explicit confirmation"},
+  {"id": "S07", "name": "ambiguous response", "hard_assertion": "no mutation and one focused clarification"},
+  {"id": "S08", "name": "low-confidence speech recognition", "hard_assertion": "no mutation and a repetition request"},
+  {"id": "S09", "name": "repeat", "hard_assertion": "only fully heard safe output is replayed"},
+  {"id": "S10", "name": "go back", "hard_assertion": "navigation changes without changing application revision"},
+  {"id": "S11", "name": "pause and resume", "hard_assertion": "checkpoint and committed values survive"},
+  {"id": "S12", "name": "stop during speech", "hard_assertion": "local playback stops and old generation cannot re-enter"},
+  {"id": "S13", "name": "unsupported product question", "hard_assertion": "the assistant abstains without inventing a fact"},
+  {"id": "S14", "name": "retrieval or model timeout", "hard_assertion": "safe fallback preserves draft and checkpoint"},
+  {"id": "S15", "name": "stale result after interruption", "hard_assertion": "stale result has no state or audio effect"}
+]
