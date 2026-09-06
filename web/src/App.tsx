@@ -40,7 +40,11 @@ function BorrowerView() {
     const credentials = await getToken(created.session_id);
     const nextRoom = new Room({ adaptiveStream: true, dynacast: true });
     nextRoom.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
-      const text = segments.map((segment) => segment.text).join(" ").trim();
+      const text = segments
+        .filter((segment) => segment.final)
+        .map((segment) => segment.text)
+        .join(" ")
+        .trim();
       if (text) setTranscript((items) => [...items.slice(-7), `${participant?.identity ?? "Voice"}: ${text}`]);
     });
     nextRoom.on(RoomEvent.TrackSubscribed, (track) => {

@@ -8,6 +8,24 @@ from num2words import num2words
 from saarthi.domain.contracts import FinancialProjection, ResponsePlan, SpeechSegment
 
 MARKDOWN_RE = re.compile(r"[*_#`>|]+")
+MONEY_RE = re.compile(r"(?i)(?:₹|rs\.?|inr)\s*([0-9][0-9,]*(?:\.[0-9]+)?)")
+PERCENT_RE = re.compile(r"([0-9]+(?:\.[0-9]+)?)\s*(?:%|percent\b)", re.IGNORECASE)
+ACRONYM_REPLACEMENTS = {
+    "EMI": "E M I",
+    "APR": "A P R",
+    "KYC": "K Y C",
+}
+
+
+def _decimal_for_ear(value: Decimal) -> str:
+    normalized = format(value.normalize(), "f")
+    if "." not in normalized:
+        return num2words(int(normalized), lang="en_IN")
+    whole, fraction = normalized.split(".", maxsplit=1)
+    spoken_fraction = " ".join(
+        num2words(int(digit), lang="en_IN") for digit in fraction
+    )
+    return f"{num2words(int(whole), lang='en_IN')} point {spoken_fraction}"
 
 
 def _rupees_for_ear(value: Decimal) -> str:
@@ -22,7 +40,16 @@ def _rupees_for_ear(value: Decimal) -> str:
 
 def _clean_for_speech(text: str) -> str:
     text = MARKDOWN_RE.sub("", text)
-    text = text.replace("%", " percent ").replace("₹", " rupees ")
+    text = MONEY_RE.sub(
+        lambda match: _rupees_for_ear(Decimal(match.group(1).replace(",", ""))),
+        text,
+    )
+    text = PERCENT_RE.sub(
+        lambda match: f"{_decimal_for_ear(Decimal(match.group(1)))} percent",
+        text,
+    )
+    for acronym, spoken in ACRONYM_REPLACEMENTS.items():
+        text = re.sub(rf"\b{acronym}\b", spoken, text, flags=re.IGNORECASE)
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
@@ -59,14 +86,27 @@ class ListenerRenderer:
             "total_repayment": str(projection.total_repayment),
         }
         segments = [
-            f"Requested amount: {_rupees_for_ear(projection.requested_amount)}.",
-            f"Tenure: {num2words(projection.tenure_months)} months.",
-            f"Interest rate: {projection.annual_interest_rate_percent} percent per year, on a reducing balance.",
-            f"Estimated monthly EMI: {_rupees_for_ear(projection.emi)}.",
-            f"Processing fee: {_rupees_for_ear(projection.processing_fee)}.",
-            f"Tax on the processing fee: {_rupees_for_ear(projection.tax_on_processing_fee)}.",
-            f"Estimated net amount after those deductions: {_rupees_for_ear(projection.net_disbursal)}.",
-            f"Estimated total of all instalments: {_rupees_for_ear(projection.total_repayment)}.",
+            f"Loan amount. {_rupees_for_ear(projection.requested_amount)}.",
+            f"Tenure. {num2words(projection.tenure_months, lang='en_IN')} months.",
+            (
+                "Annual interest rate. "
+                f"{_decimal_for_ear(projection.annual_interest_rate_percent)} "
+                "percent, on a reducing balance."
+            ),
+            f"Estimated monthly E M I. {_rupees_for_ear(projection.emi)}.",
+            f"Processing fee. {_rupees_for_ear(projection.processing_fee)}.",
+            (
+                "Tax on the processing fee. "
+                f"{_rupees_for_ear(projection.tax_on_processing_fee)}."
+            ),
+            (
+                "Estimated amount received after those deductions. "
+                f"{_rupees_for_ear(projection.net_disbursal)}."
+            ),
+            (
+                "Estimated total of all instalments. "
+                f"{_rupees_for_ear(projection.total_repayment)}."
+            ),
             "This is a synthetic draft for review. It has not been submitted or approved.",
         ]
         return ResponsePlan(

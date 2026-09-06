@@ -33,6 +33,8 @@ class Settings(BaseSettings):
 
     deepgram_api_key: SecretStr = SecretStr("")
     deepgram_model: str = "flux-general-en"
+    deepgram_numerals: bool = True
+    deepgram_eot_timeout_ms: int = 1200
 
     groq_api_key: SecretStr = SecretStr("")
     groq_model: str = "openai/gpt-oss-120b"

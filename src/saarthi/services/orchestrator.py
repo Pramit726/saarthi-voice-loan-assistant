@@ -142,9 +142,18 @@ class TurnOrchestrator:
             plan = self.planner.guard.evaluate(plan)
 
         elif (
-            proposal.route in {TurnRoute.CORRECTION}
-            and proposal.rationale_code != "confirmed_pending_write"
+            proposal.rationale_code != "confirmed_pending_write"
+            and proposal.explicit_write
+            and proposal.target_field is not None
+            and (
+                proposal.route is TurnRoute.CORRECTION
+                or proposal.target_field in draft.fields
+            )
         ):
+            # The stored draft is authoritative. Models occasionally label an
+            # explicit update to an existing field as a normal field answer.
+            # Treat it as a correction regardless of that route label so the
+            # value cannot silently overwrite the committed draft.
             state = self.state_machine.hold_for_confirmation(state, proposal)
             await self.repository.save_state(state)
             current = (

@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from saarthi.domain.contracts import FinancialProjection
 from saarthi.domain.policies import ResponseGuard
-from saarthi.services.renderer import ListenerRenderer
+from saarthi.services.renderer import ListenerRenderer, _clean_for_speech
 
 
 def projection() -> FinancialProjection:
@@ -51,3 +51,20 @@ def test_listener_renderer_splits_dense_summary_into_short_segments():
 def test_financial_plan_contains_draft_disclosure():
     plan = ListenerRenderer().projection_plan(projection())
     assert any("not been submitted" in segment for segment in plan.message_segments)
+
+
+def test_financial_values_are_rendered_for_listening():
+    plan = ListenerRenderer().projection_plan(projection())
+    spoken = " ".join(plan.message_segments)
+    assert "12.50" not in spoken
+    assert "twelve point five percent" in spoken
+    assert "monthly E M I" in spoken
+
+
+def test_grounded_financial_text_normalizes_currency_percent_and_acronyms():
+    spoken = _clean_for_speech("EMI is Rs. 1,00,000 at 12.50% APR after KYC.")
+    assert "one lakh rupees" in spoken
+    assert "twelve point five percent" in spoken
+    assert "E M I" in spoken
+    assert "A P R" in spoken
+    assert "K Y C" in spoken

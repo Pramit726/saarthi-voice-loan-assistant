@@ -93,7 +93,31 @@ async def entrypoint(ctx: JobContext) -> None:
         await runtime.close()
         raise RuntimeError(f"No Saarthi session exists for room {room_name}.")
 
-    stt = deepgram.STTv2(model=settings.deepgram_model)
+    stt = deepgram.STTv2(
+        model=settings.deepgram_model,
+        numerals=settings.deepgram_numerals,
+        eot_timeout_ms=settings.deepgram_eot_timeout_ms,
+        keyterm=[
+            "Saarthi",
+            "loan amount",
+            "loan purpose",
+            "tenure",
+            "six months",
+            "twelve months",
+            "eighteen months",
+            "twenty-four months",
+            "monthly income",
+            "existing repayments",
+            "interest rate",
+            "processing fee",
+            "EMI",
+            "KYC",
+            "salaried",
+            "self-employed",
+            "one lakh",
+            "eighty thousand",
+        ],
+    )
     tts = rime.TTS(
         model=settings.rime_model,
         speaker=settings.rime_speaker,
@@ -153,7 +177,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
         if not outcome.speech_segments:
             return
-        handle = voice_session.say(response_stream(), allow_interruptions=False)
+        handle = voice_session.say(response_stream(), allow_interruptions=True)
         active.speech = handle
         try:
             await handle
