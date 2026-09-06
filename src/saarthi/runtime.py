@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from saarthi.config import Settings
 from saarthi.providers.cache import CachedKnowledgeProvider, ResilientKnowledgeProvider
+from saarthi.providers.gemini import GeminiStructuredClient
 from saarthi.providers.groq import GroqStructuredClient
 from saarthi.providers.knowledge import (
     LocalKnowledgeProvider,
@@ -26,6 +27,7 @@ from saarthi.storage.sqlite import SqliteStateRepository
 class Runtime:
     settings: Settings
     repository: SqliteStateRepository
+    gemini: GeminiStructuredClient
     groq: GroqStructuredClient
     qdrant: QdrantKnowledgeProvider
     knowledge: CachedKnowledgeProvider
@@ -39,6 +41,7 @@ class Runtime:
 
     async def close(self) -> None:
         await self.knowledge.close()
+        await self.gemini.close()
         await self.groq.close()
         await self.repository.close()
 
@@ -61,6 +64,11 @@ def build_runtime(settings: Settings) -> Runtime:
         timeout_seconds=settings.groq_timeout_seconds,
         temperature=settings.groq_temperature,
     )
+    gemini = GeminiStructuredClient(
+        api_key=settings.gemini_api_key.get_secret_value(),
+        model=settings.gemini_model,
+        timeout_seconds=settings.gemini_timeout_seconds,
+    )
     repository = SqliteStateRepository(settings.database_url)
     calculator = FinancialCalculator.from_product_facts(facts)
     renderer = ListenerRenderer()
@@ -71,7 +79,7 @@ def build_runtime(settings: Settings) -> Runtime:
         writer=groq,
         retrieval_limit=settings.retrieval_limit,
     )
-    interpreter = RetrievedFewShotInterpreter(groq)
+    interpreter = RetrievedFewShotInterpreter(gemini)
     orchestrator = TurnOrchestrator(
         repository=repository,
         interpreter=interpreter,
@@ -88,6 +96,7 @@ def build_runtime(settings: Settings) -> Runtime:
     return Runtime(
         settings=settings,
         repository=repository,
+        gemini=gemini,
         groq=groq,
         qdrant=qdrant,
         knowledge=knowledge,

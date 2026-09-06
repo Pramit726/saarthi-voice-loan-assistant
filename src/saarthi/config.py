@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     groq_timeout_seconds: float = 12.0
     groq_temperature: float = 0.0
 
+    gemini_api_key: SecretStr = SecretStr("")
+    gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_timeout_seconds: float = 12.0
+
     rime_api_key: SecretStr = SecretStr("")
     rime_model: str = "mistv2"
     rime_speaker: str = "astra"
@@ -85,6 +89,7 @@ class Settings(BaseSettings):
             "LIVEKIT_API_SECRET": self.livekit_api_secret.get_secret_value(),
             "DEEPGRAM_API_KEY": self.deepgram_api_key.get_secret_value(),
             "GROQ_API_KEY": self.groq_api_key.get_secret_value(),
+            "GEMINI_API_KEY": self.gemini_api_key.get_secret_value(),
             "RIME_API_KEY": self.rime_api_key.get_secret_value(),
             "QDRANT_URL": self.qdrant_url,
             "QDRANT_API_KEY": self.qdrant_api_key.get_secret_value(),

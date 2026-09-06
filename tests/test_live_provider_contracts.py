@@ -3,6 +3,7 @@ import os
 import pytest
 
 from saarthi.config import get_settings
+from saarthi.providers.gemini import GeminiStructuredClient
 from saarthi.providers.groq import GroqStructuredClient
 from saarthi.providers.knowledge import QdrantKnowledgeProvider, load_product_facts
 
@@ -49,5 +50,23 @@ async def test_groq_structured_interpretation_schema():
         system="Classify the turn. Return the required schema.",
         user="Pending field requested_amount. User said: one lakh rupees.",
     )
+    assert result.route
+    assert 0 <= result.uncertainty <= 1
+
+
+async def test_gemini_structured_interpretation_schema():
+    settings = get_settings()
+    client = GeminiStructuredClient(
+        api_key=settings.gemini_api_key.get_secret_value(),
+        model=settings.gemini_model,
+        timeout_seconds=settings.gemini_timeout_seconds,
+    )
+    try:
+        result = await client.interpret(
+            system="Classify the turn. Return the required schema.",
+            user="Pending field requested_amount. User said: one lakh rupees.",
+        )
+    finally:
+        await client.close()
     assert result.route
     assert 0 <= result.uncertainty <= 1

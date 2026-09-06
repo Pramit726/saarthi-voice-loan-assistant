@@ -8,7 +8,7 @@ from typing import Protocol
 from saarthi.domain.contracts import ConversationState, FinalTranscript, TurnProposal
 from saarthi.domain.enums import ControlCommand, FieldId, TurnAct, TurnRoute
 from saarthi.domain.fields import FieldValidationError, normalise_and_validate
-from saarthi.providers.groq import GroqStructuredClient, InterpretationPayload
+from saarthi.providers.groq import InterpretationPayload
 
 CONTROL_PATTERNS: tuple[tuple[ControlCommand, re.Pattern[str]], ...] = (
     (
@@ -196,6 +196,12 @@ class TurnInterpreter(Protocol):
     ) -> TurnProposal: ...
 
 
+class InterpretationClient(Protocol):
+    async def interpret(
+        self, *, system: str, user: str
+    ) -> InterpretationPayload: ...
+
+
 def _lexical_score(left: str, right: str) -> int:
     left_tokens = set(re.findall(r"[a-z0-9]+", left.casefold()))
     right_tokens = set(re.findall(r"[a-z0-9]+", right.casefold()))
@@ -203,7 +209,7 @@ def _lexical_score(left: str, right: str) -> int:
 
 
 class RetrievedFewShotInterpreter:
-    def __init__(self, client: GroqStructuredClient, *, example_count: int = 5) -> None:
+    def __init__(self, client: InterpretationClient, *, example_count: int = 5) -> None:
         self.client = client
         self.example_count = example_count
 
