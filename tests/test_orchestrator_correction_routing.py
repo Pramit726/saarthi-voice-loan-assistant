@@ -193,3 +193,42 @@ async def test_affirmation_after_interrupted_correction_repeats_current_prompt(
         "Which city should the demonstration draft record?"
     ]
     assert result.draft.revision == 1
+
+
+async def test_hedged_income_is_confirmed_before_commit(
+    application,
+    conversation,
+    transcript_factory,
+    proposal_factory,
+):
+    from conftest import ScriptedInterpreter, build_test_orchestrator
+
+    from saarthi.storage.repository import InMemoryStateRepository
+
+    conversation.pending_field = FieldId.MONTHLY_INCOME
+    interpreter = ScriptedInterpreter(
+        {
+            "It is probably around eighty thousand.": proposal_factory(
+                route=TurnRoute.CLARIFICATION,
+                acts=[TurnAct.AMBIGUOUS],
+                target=FieldId.MONTHLY_INCOME,
+                value=80000,
+                explicit_write=False,
+                rationale="hedged_value",
+            )
+        }
+    )
+    repository = InMemoryStateRepository()
+    await repository.create(application, conversation)
+    orchestrator = build_test_orchestrator(repository, interpreter)
+
+    result = await orchestrator.process_final_transcript(
+        transcript_factory("It is probably around eighty thousand.")
+    )
+
+    assert result.commit_result is None
+    assert result.draft.revision == 0
+    assert result.response_plan.purpose == "clarify_hedged_value"
+    assert result.response_plan.message_segments == [
+        "I understood your monthly income as 80,000 rupees. Should I record that?"
+    ]

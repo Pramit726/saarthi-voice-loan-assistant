@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from saarthi.domain.contracts import CommitResult, GroundedAnswer, ResponsePlan
-from saarthi.domain.enums import AllowedAction, ControlCommand, SupportStatus
+from saarthi.domain.contracts import (
+    CommitResult,
+    GroundedAnswer,
+    ResponsePlan,
+    TurnProposal,
+)
+from saarthi.domain.enums import AllowedAction, ControlCommand, FieldId, SupportStatus
 from saarthi.domain.fields import FIELD_DEFINITIONS
 from saarthi.domain.policies import SAFE_FALLBACKS, ResponseGuard
 
@@ -101,6 +106,36 @@ class ResponsePlanner:
             purpose=f"control_{command.value}",
             message_segments=messages[command],
             allowed_action=AllowedAction.SESSION_CONTROL,
+        )
+        return self.guard.evaluate(plan)
+
+    def for_hedged_value(self, proposal: TurnProposal) -> ResponsePlan:
+        """Ask for explicit confirmation instead of committing an estimate."""
+
+        field_label = (
+            proposal.target_field.value.replace("_", " ")
+            if proposal.target_field
+            else "that value"
+        )
+        value = proposal.candidate_value
+        if proposal.target_field in {
+            FieldId.REQUESTED_AMOUNT,
+            FieldId.MONTHLY_INCOME,
+            FieldId.EXISTING_REPAYMENTS,
+        }:
+            try:
+                rendered_value = f"{float(value):,.0f} rupees"
+            except (TypeError, ValueError):
+                rendered_value = str(value)
+        elif proposal.target_field is FieldId.PREFERRED_TENURE:
+            rendered_value = f"{value} months"
+        else:
+            rendered_value = str(value)
+        plan = ResponsePlan(
+            purpose="clarify_hedged_value",
+            message_segments=[
+                f"I understood your {field_label} as {rendered_value}. Should I record that?"
+            ],
         )
         return self.guard.evaluate(plan)
 

@@ -131,6 +131,14 @@ class TurnOrchestrator:
                     proposal.control, repeat_text=repeat_text
                 )
 
+        elif (
+            proposal.route is TurnRoute.CLARIFICATION
+            and proposal.rationale_code == "hedged_value"
+            and proposal.target_field is not None
+            and proposal.candidate_value is not None
+        ):
+            plan = self.planner.for_hedged_value(proposal)
+
         elif proposal.rationale_code == "discard_pending_write":
             state = self.state_machine.discard_pending_write(state)
             state = self.state_machine.restore_checkpoint(state, draft.revision)

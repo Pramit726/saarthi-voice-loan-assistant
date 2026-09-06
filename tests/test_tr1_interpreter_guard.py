@@ -106,6 +106,27 @@ def test_low_stt_confidence_forces_clarification(transcript_factory, conversatio
     assert result.rationale_code == "low_stt_confidence"
 
 
+def test_hedged_value_forces_clarification_even_when_model_says_answer(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.MONTHLY_INCOME
+    result = RetrievedFewShotInterpreter._guard(
+        payload(
+            target_field="monthly_income",
+            candidate_value=80000,
+            source_span="probably around eighty thousand",
+            explicit_write=True,
+        ),
+        transcript_factory("It is probably around eighty thousand."),
+        conversation,
+    )
+    assert result.route is TurnRoute.CLARIFICATION
+    assert result.target_field is FieldId.MONTHLY_INCOME
+    assert result.candidate_value == 80000
+    assert result.explicit_write is False
+    assert result.rationale_code == "hedged_value"
+
+
 def test_control_is_resolved_without_llm(transcript_factory):
     result = RetrievedFewShotInterpreter._direct_control(
         transcript_factory("please stop speaking")

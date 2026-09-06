@@ -45,6 +45,20 @@ CONTROL_PATTERNS: tuple[tuple[ControlCommand, re.Pattern[str]], ...] = (
     ),
 )
 
+HEDGED_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bprobably\b", re.IGNORECASE),
+    re.compile(r"\baround\b", re.IGNORECASE),
+    re.compile(r"\bapproximately\b", re.IGNORECASE),
+    re.compile(r"\bapprox\.?\b", re.IGNORECASE),
+    re.compile(r"\bmaybe\b", re.IGNORECASE),
+    re.compile(r"\broughly\b", re.IGNORECASE),
+    re.compile(r"\babout\b", re.IGNORECASE),
+    re.compile(r"\bi think\b", re.IGNORECASE),
+    re.compile(r"\bnot sure\b", re.IGNORECASE),
+    re.compile(r"\bsomewhere near\b", re.IGNORECASE),
+    re.compile(r"\bmore or less\b", re.IGNORECASE),
+)
+
 
 def control_command_for_text(text: str) -> ControlCommand | None:
     """Resolve a short spoken control without involving the LLM."""
@@ -298,6 +312,9 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
         confidence_uncertain = (
             transcript.confidence is not None and transcript.confidence < 0.70
         )
+        hedged_value = payload.candidate_value is not None and any(
+            pattern.search(transcript.text) for pattern in HEDGED_VALUE_PATTERNS
+        )
         unsafe_write_shape = (
             route not in {TurnRoute.FIELD_ANSWER, TurnRoute.CORRECTION}
             or any(
@@ -308,10 +325,10 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
             or payload.candidate_value is None
             or target is None
         )
-        if confidence_uncertain:
+        if confidence_uncertain or hedged_value:
             acts = [TurnAct.AMBIGUOUS]
             route = TurnRoute.CLARIFICATION
-            target = state.pending_field
+            target = state.pending_field or target
         deterministic_plain_answer = (
             route is TurnRoute.FIELD_ANSWER
             and acts == [TurnAct.ANSWER]
@@ -333,9 +350,15 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
             source_span=payload.source_span,
             reference_resolution=payload.reference_resolution,
             control=control,
-            uncertainty=max(payload.uncertainty, 0.7 if confidence_uncertain else 0.0),
-            rationale_code=(
-                "low_stt_confidence" if confidence_uncertain else payload.rationale_code
+            uncertainty=max(
+                payload.uncertainty, 0.7 if confidence_uncertain or hedged_value else 0.0
             ),
-            explicit_write=explicit_write,
+            rationale_code=(
+                "low_stt_confidence"
+                if confidence_uncertain
+                else "hedged_value"
+                if hedged_value
+                else payload.rationale_code
+            ),
+            explicit_write=explicit_write and not hedged_value,
         )
