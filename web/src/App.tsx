@@ -16,6 +16,9 @@ type EvidenceEvent = {
   component: string;
   outcome: string;
   occurred_at: string;
+  turn_id?: string | null;
+  generation_id?: number;
+  application_revision?: number;
   latency_ms?: number | null;
   payload?: Record<string, any>;
 };
@@ -179,6 +182,53 @@ function LatencyChart({ events }: { events: EvidenceEvent[] }) {
   return <EvidenceBarChart title="Backend decision latency" description="milliseconds · latest samples" data={samples.map((sample) => ({ ...sample, detail: `${sample.value} ms` }))} tone="orange" />;
 }
 
+const EVENT_TITLES: Record<string, string> = {
+  session_created: "Session created",
+  final_transcript_accepted: "User turn accepted",
+  turn_interpreted: "Turn interpreted",
+  grounding_decided: "Grounded answer decided",
+  application_patch_decided: "Draft write decided",
+  response_released: "Response released",
+  response_blocked: "Response blocked by guard",
+  speech_delivered: "Speech delivered",
+  speech_interrupted: "Speech interrupted",
+};
+
+function eventTitle(event: EvidenceEvent) {
+  return EVENT_TITLES[event.event_type] ?? event.event_type.replaceAll("_", " ");
+}
+
+function eventDetail(event: EvidenceEvent) {
+  const payload = event.payload ?? {};
+  if (event.event_type === "turn_interpreted") {
+    return `Route: ${String(payload.route ?? event.outcome).replaceAll("_", " ")}${payload.target_field ? ` · target: ${String(payload.target_field).replaceAll("_", " ")}` : ""}`;
+  }
+  if (event.event_type === "application_patch_decided") {
+    return payload.accepted ? `Draft revision advanced to ${payload.new_revision ?? "the next revision"}.` : `Draft write was not applied: ${String(event.outcome).replaceAll("_", " ")}.`;
+  }
+  if (event.event_type === "grounding_decided") {
+    const factCount = Array.isArray(payload.fact_ids) ? payload.fact_ids.length : 0;
+    return `${factCount} approved product fact${factCount === 1 ? "" : "s"} linked to the answer.`;
+  }
+  if (event.event_type === "response_released") {
+    const segmentCount = Array.isArray(payload.segment_ids) ? payload.segment_ids.length : 0;
+    return `${segmentCount} spoken segment${segmentCount === 1 ? "" : "s"} released after guard evaluation.`;
+  }
+  if (event.event_type === "response_blocked") return "The response guard stopped this output from being spoken.";
+  if (event.event_type === "speech_interrupted") return "Playback was stopped so the next user turn could take priority.";
+  if (event.event_type === "speech_delivered") return "The generated response completed playback.";
+  if (event.event_type === "final_transcript_accepted") return "A final speech-recognition result entered the guarded backend.";
+  if (event.event_type === "session_created") return "A new draft-only application and conversation state were created.";
+  return `Observed outcome: ${event.outcome.replaceAll("_", " ")}.`;
+}
+
+function eventTone(event: EvidenceEvent) {
+  if (/blocked|failed|rejected|stale/.test(event.outcome) || event.event_type === "response_blocked") return "failure";
+  if (event.event_type === "speech_interrupted" || /interrupt/.test(event.event_type)) return "warning";
+  if (event.event_type === "grounding_decided" || event.event_type === "application_patch_decided") return "decision";
+  return "normal";
+}
+
 function Dashboard({ sessionId }: { sessionId: string }) {
   const [events, setEvents] = useState<EvidenceEvent[]>([]);
   const [draft, setDraft] = useState<any>(null);
@@ -209,6 +259,8 @@ function Dashboard({ sessionId }: { sessionId: string }) {
     { label: "Interrupted", value: events.filter((event) => event.outcome === "interrupted").length },
     { label: "Blocked or failed", value: events.filter((event) => /blocked|failed|rejected|stale/.test(event.outcome)).length },
   ];
+  const hardFailures = acceptance?.hard_gate_failures?.length ?? 0;
+  const turns = new Set(events.map((event) => event.turn_id).filter(Boolean)).size;
   return <main className="shell dashboard">
     <header className="hero"><div><span className="eyebrow">OBSERVABILITY AND ACCEPTANCE</span><h1>Saarthi evidence dashboard</h1><p>Session {sessionId}</p></div><div className={`verdict ${acceptance?.verdict ?? "pending"}`}>{acceptance?.verdict ?? "pending"}</div></header>
     <div className="metric-row"><article><span>Draft revision</span><strong>{draft?.revision ?? 0}</strong></article><article><span>Trace events</span><strong>{events.length}</strong></article><article><span>Grounded answers</span><strong>{grounded.length}</strong></article><article><span>Control evidence</span><strong>{controls.length}</strong></article></div>
@@ -223,7 +275,21 @@ function Dashboard({ sessionId }: { sessionId: string }) {
       <EvidenceBarChart title="Event outcomes" description="trace outcome counts" data={outcomeData} tone="blue" />
       <LatencyChart events={events} />
     </div>
-    <section className="card"><h2>Conversation and decision timeline</h2><div className="timeline">{events.map((event) => <div className="event" key={event.event_id}><time>{new Date(event.occurred_at).toLocaleTimeString()}</time><strong>{event.event_type.replaceAll("_", " ")}</strong><span>{event.component} · {event.outcome}</span></div>)}</div></section>
+    <section className="card timeline-card">
+      <div className="timeline-heading">
+        <div><h2>Conversation and decision timeline</h2><p>Every guarded state transition, from the accepted user turn to spoken output.</p></div>
+        <div className="timeline-summary"><span><strong>{events.length}</strong> events</span><span><strong>{turns}</strong> turns</span><span className={hardFailures ? "summary-failure" : ""}><strong>{hardFailures}</strong> hard failures</span></div>
+      </div>
+      {events.length ? <div className="timeline" aria-label="Conversation and decision events">{events.map((event, index) => <article className={`event event-${eventTone(event)}`} key={event.event_id}>
+        <div className="event-marker" aria-hidden="true"><span>{String(index + 1).padStart(2, "0")}</span></div>
+        <div className="event-body">
+          <div className="event-meta"><time>{new Date(event.occurred_at).toLocaleTimeString()}</time><span>{event.component}</span>{event.turn_id && <span>turn {event.turn_id.slice(-6)}</span>}</div>
+          <strong className="event-title">{eventTitle(event)}</strong>
+          <p>{eventDetail(event)}</p>
+        </div>
+        <div className="event-side"><span className={`outcome outcome-${eventTone(event)}`}>{event.outcome.replaceAll("_", " ")}</span><span>rev {event.application_revision ?? 0}</span>{typeof event.latency_ms === "number" && <span>{Math.round(event.latency_ms)} ms</span>}</div>
+      </article>)}</div> : <div className="timeline-empty"><strong>No conversation events yet.</strong><span>Start a voice draft to see recognition, decisions, safeguards, and playback appear here.</span></div>}
+    </section>
     <a className="dashboard-link" href="/">← Return to borrower experience</a>
   </main>;
 }
