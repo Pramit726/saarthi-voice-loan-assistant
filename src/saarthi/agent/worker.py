@@ -200,6 +200,16 @@ async def entrypoint(ctx: JobContext) -> None:
 
         if not outcome.speech_segments:
             return
+
+        # LiveKit emits the final-transcript callback before it completes its
+        # own end-of-turn interruption bookkeeping. Let that bookkeeping
+        # settle before starting the replacement response; otherwise short
+        # controls such as "repeat" can interrupt the replay they just
+        # requested.
+        await asyncio.sleep(settings.post_transcript_settle_delay_seconds)
+        if not active.is_current(local_generation):
+            return
+
         handle = voice_session.say(response_stream(), allow_interruptions=True)
         active.speech = handle
         try:

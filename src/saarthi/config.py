@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     interruption_min_duration_seconds: float = 0.30
     interruption_min_words: int = 1
     false_interruption_timeout_seconds: float = 1.50
+    post_transcript_settle_delay_seconds: float = 0.20
 
     groq_api_key: SecretStr = SecretStr("")
     groq_model: str = "openai/gpt-oss-120b"
