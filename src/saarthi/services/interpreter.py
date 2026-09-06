@@ -154,6 +154,8 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
         acts = [TurnAct(item) for item in payload.acts]
         route = TurnRoute(payload.route)
         target = FieldId(payload.target_field) if payload.target_field else None
+        if route is TurnRoute.FIELD_ANSWER and target is None:
+            target = state.pending_field
         control = ControlCommand(payload.control) if payload.control else None
         confidence_uncertain = transcript.confidence is not None and transcript.confidence < 0.70
         unsafe_write_shape = (
@@ -166,9 +168,18 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
             acts = [TurnAct.AMBIGUOUS]
             route = TurnRoute.CLARIFICATION
             target = state.pending_field
-        explicit_write = bool(payload.explicit_write and not unsafe_write_shape and not confidence_uncertain)
-        if route is TurnRoute.FIELD_ANSWER and target is None:
-            target = state.pending_field
+        deterministic_plain_answer = (
+            route is TurnRoute.FIELD_ANSWER
+            and acts == [TurnAct.ANSWER]
+            and target is not None
+            and target == state.pending_field
+            and payload.candidate_value is not None
+        )
+        explicit_write = bool(
+            (payload.explicit_write or deterministic_plain_answer)
+            and not unsafe_write_shape
+            and not confidence_uncertain
+        )
         return TurnProposal(
             source_transcript_id=transcript.transcript_id,
             acts=acts,
