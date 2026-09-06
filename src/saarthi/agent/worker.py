@@ -166,28 +166,9 @@ async def entrypoint(ctx: JobContext) -> None:
         min_consecutive_speech_delay=0.0,
     )
     active = ActiveGeneration()
-    user_idle = asyncio.Event()
-    user_idle.set()
-
-    async def wait_until_user_idle() -> None:
-        try:
-            await asyncio.wait_for(
-                user_idle.wait(),
-                timeout=settings.response_user_idle_timeout_seconds,
-            )
-        except TimeoutError:
-            # Do not deadlock the conversation if a provider misses a user
-            # state transition. The generation fence still protects output.
-            logger.warning("timed out waiting for user listening state")
-
-    @voice_session.on("user_state_changed")
-    def on_user_state_changed(event) -> None:
-        if getattr(event, "new_state", None) == "speaking":
-            user_idle.clear()
-        else:
-            user_idle.set()
 
     async def process_final_turn(text: str) -> None:
+        turn_received_at = asyncio.get_running_loop().time()
         local_generation = await active.begin()
         latest = await runtime.repository.get_state(session_id)
         if latest is None:
@@ -222,12 +203,16 @@ async def entrypoint(ctx: JobContext) -> None:
             return
 
         # LiveKit emits the final-transcript callback before it completes its
-        # own end-of-turn interruption bookkeeping. Let that bookkeeping
-        # settle before starting the replacement response; otherwise short
-        # controls such as "repeat" can interrupt the replay they just
-        # requested.
-        await asyncio.sleep(settings.post_transcript_settle_delay_seconds)
-        await wait_until_user_idle()
+        # own end-of-turn interruption bookkeeping. Enforce a minimum handoff
+        # measured from receipt of the final transcript. Slow model/retrieval
+        # work naturally consumes this interval; fast controls and fallbacks
+        # wait only for the remaining time.
+        elapsed = asyncio.get_running_loop().time() - turn_received_at
+        remaining_handoff = max(
+            0.0, settings.post_transcript_settle_delay_seconds - elapsed
+        )
+        if remaining_handoff:
+            await asyncio.sleep(remaining_handoff)
         if not active.is_current(local_generation):
             return
 
@@ -287,7 +272,6 @@ async def entrypoint(ctx: JobContext) -> None:
             # turn arrives, treat the interruption as false/untranscribed and
             # replay once so the conversation does not end in silence.
             await asyncio.sleep(settings.interrupted_response_recovery_delay_seconds)
-            await wait_until_user_idle()
             refreshed = await runtime.repository.get_state(session_id)
             if (
                 not active.is_current(local_generation)

@@ -38,11 +38,12 @@ class Settings(BaseSettings):
 
     # LiveKit barge-in tuning. A short VAD blip should not stop a response;
     # explicit stop is still handled separately by the worker.
-    interruption_min_duration_seconds: float = 0.30
+    interruption_min_duration_seconds: float = 0.50
     interruption_min_words: int = 1
     false_interruption_timeout_seconds: float = 1.50
-    post_transcript_settle_delay_seconds: float = 0.20
-    response_user_idle_timeout_seconds: float = 1.50
+    # Minimum final-transcript-to-playback handoff. Fast deterministic turns
+    # need this; slow provider turns have already consumed the interval.
+    post_transcript_settle_delay_seconds: float = 0.65
     interrupted_response_recovery_delay_seconds: float = 1.75
     interrupted_response_max_retries: int = 1
 

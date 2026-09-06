@@ -85,9 +85,30 @@ class TurnOrchestrator:
         except Exception as exc:  # noqa: BLE001 - all interpreter failures must fail closed
             state.failure_component = "interpreter"
             state.failure_reason = type(exc).__name__
-            await self.repository.save_state(state)
             plan = self.planner.safe_fallback("provider_failure")
             segments = self.renderer.render(plan, generation_id=state.generation_id)
+            state.output_queue = segments
+            await self.repository.save_state(state)
+            await self._trace(
+                state,
+                "interpreter_failed",
+                "tr1_interpreter",
+                "failed_closed",
+                {"error_type": type(exc).__name__},
+            )
+            await self._trace(
+                state,
+                "response_released",
+                "listener_renderer",
+                "released",
+                {
+                    "response_id": plan.response_id,
+                    "segment_ids": [segment.segment_id for segment in segments],
+                    "fallback_code": "provider_failure",
+                    "latency_ms": round((perf_counter() - started) * 1000, 2),
+                },
+                latency_ms=(perf_counter() - started) * 1000,
+            )
             return TurnOutcome(
                 state=state, draft=draft, response_plan=plan, speech_segments=segments
             )

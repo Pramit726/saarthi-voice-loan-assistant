@@ -128,6 +128,23 @@ def test_hedged_value_forces_clarification_even_when_model_says_answer(
     assert result.rationale_code == "hedged_value"
 
 
+async def test_hedged_money_is_understood_without_calling_the_llm(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.MONTHLY_INCOME
+    interpreter = RetrievedFewShotInterpreter(client=None)  # type: ignore[arg-type]
+
+    result = await interpreter.interpret(
+        transcript_factory("It is probably around eighty thousand."), conversation
+    )
+
+    assert result.route is TurnRoute.CLARIFICATION
+    assert result.target_field is FieldId.MONTHLY_INCOME
+    assert result.candidate_value == 80000
+    assert result.explicit_write is False
+    assert result.rationale_code == "hedged_value"
+
+
 def test_control_is_resolved_without_llm(transcript_factory):
     result = RetrievedFewShotInterpreter._direct_control(
         transcript_factory("please stop speaking")

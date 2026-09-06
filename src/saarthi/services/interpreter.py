@@ -7,6 +7,7 @@ from typing import Protocol
 
 from saarthi.domain.contracts import ConversationState, FinalTranscript, TurnProposal
 from saarthi.domain.enums import ControlCommand, FieldId, TurnAct, TurnRoute
+from saarthi.domain.fields import FieldValidationError, normalise_and_validate
 from saarthi.providers.groq import GroqStructuredClient, InterpretationPayload
 
 CONTROL_PATTERNS: tuple[tuple[ControlCommand, re.Pattern[str]], ...] = (
@@ -218,6 +219,9 @@ class RetrievedFewShotInterpreter:
         direct_control = self._direct_control(transcript)
         if direct_control:
             return direct_control
+        direct_hedged_value = self._direct_hedged_money(transcript, state)
+        if direct_hedged_value:
+            return direct_hedged_value
         direct_calculation = self._direct_calculation(transcript)
         if direct_calculation:
             return direct_calculation
@@ -291,6 +295,39 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
             route=TurnRoute.CALCULATION,
             uncertainty=0,
             rationale_code="deterministic_calculation_match",
+            explicit_write=False,
+        )
+
+    @staticmethod
+    def _direct_hedged_money(
+        transcript: FinalTranscript, state: ConversationState
+    ) -> TurnProposal | None:
+        money_fields = {
+            FieldId.REQUESTED_AMOUNT,
+            FieldId.MONTHLY_INCOME,
+            FieldId.EXISTING_REPAYMENTS,
+        }
+        if (
+            state.pending_field not in money_fields
+            or (transcript.confidence is not None and transcript.confidence < 0.70)
+            or not any(
+                pattern.search(transcript.text) for pattern in HEDGED_VALUE_PATTERNS
+            )
+        ):
+            return None
+        try:
+            candidate = normalise_and_validate(state.pending_field, transcript.text)
+        except FieldValidationError:
+            return None
+        return TurnProposal(
+            source_transcript_id=transcript.transcript_id,
+            acts=[TurnAct.AMBIGUOUS],
+            route=TurnRoute.CLARIFICATION,
+            target_field=state.pending_field,
+            candidate_value=candidate,
+            source_span=transcript.text,
+            uncertainty=0.7,
+            rationale_code="hedged_value",
             explicit_write=False,
         )
 
