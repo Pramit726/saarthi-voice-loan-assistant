@@ -49,11 +49,53 @@ def _normalise_money(value: Any) -> Decimal:
         text = re.sub(r"\bthousand\b", "", text).strip()
     match = re.search(r"-?\d+(?:\.\d+)?", text)
     if not match:
-        raise ValueError("I could not identify a monetary amount.")
+        word_value = _number_words_to_decimal(text)
+        if word_value is None:
+            raise ValueError("I could not identify a monetary amount.")
+        return (word_value * multiplier).quantize(Decimal("0.01"))
     try:
         return (Decimal(match.group()) * multiplier).quantize(Decimal("0.01"))
     except InvalidOperation as exc:
         raise ValueError("The monetary amount is invalid.") from exc
+
+
+SMALL_NUMBERS = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+    "nineteen": 19,
+}
+TENS = {
+    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}
+
+
+def _number_words_to_decimal(text: str) -> Decimal | None:
+    tokens = re.findall(r"[a-z]+", text.casefold().replace("lac", "lakh"))
+    current = 0
+    total = 0
+    recognized = False
+    for token in tokens:
+        if token in SMALL_NUMBERS:
+            current += SMALL_NUMBERS[token]
+            recognized = True
+        elif token in TENS:
+            current += TENS[token]
+            recognized = True
+        elif token == "hundred":
+            current = max(current, 1) * 100
+            recognized = True
+        elif token == "thousand":
+            total += max(current, 1) * 1_000
+            current = 0
+            recognized = True
+        elif token == "lakh":
+            total += max(current, 1) * 100_000
+            current = 0
+            recognized = True
+    return Decimal(total + current) if recognized else None
 
 
 def _normalise_tenure(value: Any) -> int:

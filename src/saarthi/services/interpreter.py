@@ -29,10 +29,10 @@ class FewShotExample:
 
 
 EXAMPLES: tuple[FewShotExample, ...] = (
-    FewShotExample("one lakh rupees", FieldId.REQUESTED_AMOUNT, {"acts": ["answer"], "route": "field_answer", "target_field": "requested_amount", "candidate_value": "one lakh rupees", "explicit_write": True}),
+    FewShotExample("one lakh rupees", FieldId.REQUESTED_AMOUNT, {"acts": ["answer"], "route": "field_answer", "target_field": "requested_amount", "candidate_value": 100000, "explicit_write": True}),
     FewShotExample("what does tenure mean", FieldId.PREFERRED_TENURE, {"acts": ["doubt"], "route": "field_doubt", "target_field": "preferred_tenure", "candidate_value": None, "explicit_write": False}),
     FewShotExample("twelve months, but what will the EMI be", FieldId.PREFERRED_TENURE, {"acts": ["answer", "doubt"], "route": "calculation", "target_field": "preferred_tenure", "candidate_value": "12 months", "explicit_write": False}),
-    FewShotExample("change the amount to eighty thousand", FieldId.LOAN_PURPOSE, {"acts": ["correction"], "route": "correction", "target_field": "requested_amount", "candidate_value": "eighty thousand", "explicit_write": True}),
+    FewShotExample("change the amount to eighty thousand", FieldId.LOAN_PURPOSE, {"acts": ["correction"], "route": "correction", "target_field": "requested_amount", "candidate_value": 80000, "explicit_write": True}),
     FewShotExample("is the processing fee part of EMI", FieldId.LOAN_PURPOSE, {"acts": ["doubt"], "route": "product_question", "target_field": None, "candidate_value": None, "explicit_write": False}),
     FewShotExample("I am salaried", FieldId.EMPLOYMENT_TYPE, {"acts": ["answer"], "route": "field_answer", "target_field": "employment_type", "candidate_value": "salaried", "explicit_write": True}),
     FewShotExample("I don't know", FieldId.MONTHLY_INCOME, {"acts": ["ambiguous"], "route": "clarification", "target_field": "monthly_income", "candidate_value": None, "explicit_write": False}),
@@ -81,6 +81,8 @@ Routes: field_answer, field_doubt, product_question, calculation, correction, co
 Acts: answer, doubt, correction, control, mixed, ambiguous.
 A question, command, uncertainty, or mixed answer-plus-doubt must never be an explicit write.
 Only use a target field when it is explicit or is the single pending field for a plain answer.
+Normalize money candidates to numeric rupees, tenure to integer months, employment to salaried or self-employed,
+and contact preference to phone or email. Preserve the exact spoken phrase in source_span.
 Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or email address."""
         user = json.dumps(
             {
