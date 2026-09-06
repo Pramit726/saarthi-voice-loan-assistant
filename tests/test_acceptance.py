@@ -24,13 +24,22 @@ def test_missing_evidence_is_inconclusive_not_pass():
 
 def test_any_hard_failure_forces_fail():
     result = AcceptanceService().evaluate(
-        [event("session_created"), event("final_transcript_accepted"), event("turn_interpreted"), event("unsupported_claim_released")]
+        [
+            event("session_created"),
+            event("final_transcript_accepted"),
+            event("turn_interpreted"),
+            event("unsupported_claim_released"),
+        ]
     )
     assert result.verdict is Verdict.FAIL
 
 
 def test_complete_safe_trace_passes():
     result = AcceptanceService().evaluate(
-        [event("session_created"), event("final_transcript_accepted"), event("turn_interpreted")]
+        [
+            event("session_created"),
+            event("final_transcript_accepted"),
+            event("turn_interpreted"),
+        ]
     )
     assert result.verdict is Verdict.PASS

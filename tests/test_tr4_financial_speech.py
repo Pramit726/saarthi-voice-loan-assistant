@@ -40,7 +40,9 @@ def test_written_and_spoken_plans_share_projection_values():
 
 def test_listener_renderer_splits_dense_summary_into_short_segments():
     renderer = ListenerRenderer()
-    plan = ResponseGuard().evaluate(renderer.projection_plan(projection()), financial_response=True)
+    plan = ResponseGuard().evaluate(
+        renderer.projection_plan(projection()), financial_response=True
+    )
     segments = renderer.render(plan, generation_id=1)
     assert len(segments) >= 8
     assert max(len(segment.text.split()) for segment in segments) < 25

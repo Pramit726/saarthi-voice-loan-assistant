@@ -30,7 +30,10 @@ async def compile_file(source: Path, output: Path) -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(
-            {"review_required": True, "facts": [fact.model_dump(mode="json") for fact in facts]},
+            {
+                "review_required": True,
+                "facts": [fact.model_dump(mode="json") for fact in facts],
+            },
             indent=2,
         ),
         encoding="utf-8",
@@ -39,12 +42,16 @@ async def compile_file(source: Path, output: Path) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Compile a free-form synthetic product sheet into draft atomic facts.")
+    parser = argparse.ArgumentParser(
+        description="Compile a free-form synthetic product sheet into draft atomic facts."
+    )
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
     count = asyncio.run(compile_file(args.input, args.output))
-    print(f"Created {count} draft facts for human review; none were approved or ingested.")
+    print(
+        f"Created {count} draft facts for human review; none were approved or ingested."
+    )
 
 
 if __name__ == "__main__":

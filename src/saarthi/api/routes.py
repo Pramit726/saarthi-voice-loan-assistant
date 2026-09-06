@@ -18,7 +18,6 @@ from saarthi.domain.fields import FIELD_DEFINITIONS
 from saarthi.domain.state import ConversationStateMachine
 from saarthi.runtime import Runtime
 
-
 router = APIRouter(prefix="/api")
 
 
@@ -57,7 +56,9 @@ async def create_session(request: Request) -> SessionCreateResponse:
 
 
 @router.post("/livekit/token", response_model=TokenResponse)
-async def create_livekit_token(payload: TokenRequest, request: Request) -> TokenResponse:
+async def create_livekit_token(
+    payload: TokenRequest, request: Request
+) -> TokenResponse:
     runtime = runtime_from(request)
     state = await runtime.repository.get_state(payload.session_id)
     if state is None:
@@ -74,7 +75,10 @@ async def create_livekit_token(payload: TokenRequest, request: Request) -> Token
             agent_name=runtime.settings.livekit_agent_name,
         )
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Could not dispatch voice worker: {type(exc).__name__}") from exc
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not dispatch voice worker: {type(exc).__name__}",
+        ) from exc
     return TokenResponse(
         url=runtime.settings.livekit_url,
         token=token,
@@ -123,7 +127,9 @@ async def get_acceptance(session_id: str, request: Request) -> dict:
 
 
 @router.post("/sessions/{session_id}/turns")
-async def process_text_turn(session_id: str, payload: TextTurnRequest, request: Request) -> dict:
+async def process_text_turn(
+    session_id: str, payload: TextTurnRequest, request: Request
+) -> dict:
     """Development and transcript-level test entrypoint; voice uses the same orchestrator."""
 
     runtime = runtime_from(request)
@@ -147,33 +153,47 @@ async def process_text_turn(session_id: str, payload: TextTurnRequest, request: 
 
 
 @router.post("/sessions/{session_id}/controls")
-async def apply_control(session_id: str, payload: ControlRequest, request: Request) -> dict:
+async def apply_control(
+    session_id: str, payload: ControlRequest, request: Request
+) -> dict:
     command_text = {
         "go_back": "go back",
         "show_summary": "show my summary",
     }.get(payload.command.value, payload.command.value)
-    return await process_text_turn(session_id, TextTurnRequest(text=command_text), request)
+    return await process_text_turn(
+        session_id, TextTurnRequest(text=command_text), request
+    )
 
 
 @router.post("/sessions/{session_id}/delivery")
-async def update_delivery(session_id: str, payload: DeliveryUpdate, request: Request) -> dict:
+async def update_delivery(
+    session_id: str, payload: DeliveryUpdate, request: Request
+) -> dict:
     runtime = runtime_from(request)
     state = await runtime.repository.get_state(session_id)
     if state is None:
         raise HTTPException(status_code=404, detail="Session not found")
     if payload.status is DeliveryStatus.DELIVERED:
-        state = ConversationStateMachine.mark_segment_delivered(state, payload.segment_id)
+        state = ConversationStateMachine.mark_segment_delivered(
+            state, payload.segment_id
+        )
     else:
         found = False
         for segment in state.output_queue:
             if segment.segment_id == payload.segment_id:
                 segment.delivery_status = payload.status
-                segment.heard_character_count = min(payload.heard_character_count, len(segment.text))
+                segment.heard_character_count = min(
+                    payload.heard_character_count, len(segment.text)
+                )
                 found = True
         if not found:
             raise HTTPException(status_code=404, detail="Speech segment not found")
     await runtime.repository.save_state(state)
-    return {"updated": True, "segment_id": payload.segment_id, "status": payload.status.value}
+    return {
+        "updated": True,
+        "segment_id": payload.segment_id,
+        "status": payload.status.value,
+    }
 
 
 @router.get("/sessions/{session_id}/export")

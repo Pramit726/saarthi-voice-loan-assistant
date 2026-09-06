@@ -1,6 +1,8 @@
-import pytest
-
-from saarthi.domain.contracts import ApplicationDraft, ApplicationPatch, ConversationState
+from saarthi.domain.contracts import (
+    ApplicationDraft,
+    ApplicationPatch,
+    ConversationState,
+)
 from saarthi.domain.enums import FieldId
 from saarthi.domain.reducer import GuardedReducer
 from saarthi.storage.repository import InMemoryStateRepository
@@ -9,9 +11,13 @@ from saarthi.storage.repository import InMemoryStateRepository
 async def test_overlapping_turn_numbers_do_not_cross_sessions():
     repository = InMemoryStateRepository()
     draft_a = ApplicationDraft(application_id="app-a", owner_session_id="session-a")
-    state_a = ConversationState(session_id="session-a", application_id="app-a", participant_id="user-a")
+    state_a = ConversationState(
+        session_id="session-a", application_id="app-a", participant_id="user-a"
+    )
     draft_b = ApplicationDraft(application_id="app-b", owner_session_id="session-b")
-    state_b = ConversationState(session_id="session-b", application_id="app-b", participant_id="user-b")
+    state_b = ConversationState(
+        session_id="session-b", application_id="app-b", participant_id="user-b"
+    )
     await repository.create(draft_a, state_a)
     await repository.create(draft_b, state_b)
     wrong_session_patch = ApplicationPatch(

@@ -3,7 +3,6 @@ from __future__ import annotations
 from saarthi.domain.contracts import AcceptanceResult, TraceEvent
 from saarthi.domain.enums import Verdict
 
-
 HARD_FAILURE_EVENTS = {
     "unintended_mutation",
     "stale_result_applied",
@@ -14,7 +13,11 @@ HARD_FAILURE_EVENTS = {
     "forbidden_action_dispatched",
 }
 
-REQUIRED_TRACE_EVENTS = {"session_created", "final_transcript_accepted", "turn_interpreted"}
+REQUIRED_TRACE_EVENTS = {
+    "session_created",
+    "final_transcript_accepted",
+    "turn_interpreted",
+}
 
 
 class AcceptanceService:

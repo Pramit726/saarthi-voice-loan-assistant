@@ -36,14 +36,41 @@ def load_product_facts(path: Path) -> list[ProductFact]:
 
 TOKEN_RE = re.compile(r"[a-z0-9]+")
 STOPWORDS = {
-    "a", "an", "and", "are", "be", "can", "do", "for", "from", "how", "i", "in", "is",
-    "it", "me", "my", "of", "on", "or", "the", "this", "to", "what", "when", "which",
-    "will", "with", "you",
+    "a",
+    "an",
+    "and",
+    "are",
+    "be",
+    "can",
+    "do",
+    "for",
+    "from",
+    "how",
+    "i",
+    "in",
+    "is",
+    "it",
+    "me",
+    "my",
+    "of",
+    "on",
+    "or",
+    "the",
+    "this",
+    "to",
+    "what",
+    "when",
+    "which",
+    "will",
+    "with",
+    "you",
 }
 
 
 def _tokens(text: str) -> list[str]:
-    return [token for token in TOKEN_RE.findall(text.casefold()) if token not in STOPWORDS]
+    return [
+        token for token in TOKEN_RE.findall(text.casefold()) if token not in STOPWORDS
+    ]
 
 
 class LocalKnowledgeProvider:
@@ -82,7 +109,10 @@ class LocalKnowledgeProvider:
             ):
                 continue
             document_counts = Counter(document_tokens)
-            overlap = sum(min(count, document_counts[token]) for token, count in query_counts.items())
+            overlap = sum(
+                min(count, document_counts[token])
+                for token, count in query_counts.items()
+            )
             alias_bonus = max(
                 (1.5 for alias in fact.aliases if alias.casefold() in query.casefold()),
                 default=0.0,
@@ -97,6 +127,13 @@ class QdrantKnowledgeProvider:
     """Version-scoped vector retrieval using local embeddings and Qdrant Cloud storage."""
 
     vector_name = "content"
+    keyword_payload_fields = (
+        "fact_id",
+        "product_id",
+        "product_version",
+        "fact_set_version",
+        "status",
+    )
 
     def __init__(
         self,
@@ -120,15 +157,23 @@ class QdrantKnowledgeProvider:
 
     async def ensure_collection(self) -> None:
         def operation() -> None:
-            if self.client.collection_exists(self.collection):
-                return
-            dimension = len(self._embed(["dimension probe"])[0])
-            self.client.create_collection(
-                collection_name=self.collection,
-                vectors_config={
-                    self.vector_name: models.VectorParams(size=dimension, distance=models.Distance.COSINE)
-                },
-            )
+            if not self.client.collection_exists(self.collection):
+                dimension = len(self._embed(["dimension probe"])[0])
+                self.client.create_collection(
+                    collection_name=self.collection,
+                    vectors_config={
+                        self.vector_name: models.VectorParams(
+                            size=dimension, distance=models.Distance.COSINE
+                        )
+                    },
+                )
+            for field_name in self.keyword_payload_fields:
+                self.client.create_payload_index(
+                    collection_name=self.collection,
+                    field_name=field_name,
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                    wait=True,
+                )
 
         await asyncio.to_thread(operation)
 
@@ -146,7 +191,9 @@ class QdrantKnowledgeProvider:
                 )
                 for fact, vector in zip(facts, embeddings, strict=True)
             ]
-            self.client.upsert(collection_name=self.collection, points=points, wait=True)
+            self.client.upsert(
+                collection_name=self.collection, points=points, wait=True
+            )
             return len(points)
 
         return await asyncio.to_thread(operation)
@@ -156,7 +203,11 @@ class QdrantKnowledgeProvider:
             result = self.client.scroll(
                 collection_name=self.collection,
                 scroll_filter=models.Filter(
-                    must=[models.FieldCondition(key="fact_id", match=models.MatchValue(value=fact_id))]
+                    must=[
+                        models.FieldCondition(
+                            key="fact_id", match=models.MatchValue(value=fact_id)
+                        )
+                    ]
                 ),
                 limit=1,
                 with_payload=True,
@@ -185,14 +236,20 @@ class QdrantKnowledgeProvider:
                 using=self.vector_name,
                 query_filter=models.Filter(
                     must=[
-                        models.FieldCondition(key="product_id", match=models.MatchValue(value=product_id)),
                         models.FieldCondition(
-                            key="product_version", match=models.MatchValue(value=product_version)
+                            key="product_id", match=models.MatchValue(value=product_id)
                         ),
                         models.FieldCondition(
-                            key="fact_set_version", match=models.MatchValue(value=fact_set_version)
+                            key="product_version",
+                            match=models.MatchValue(value=product_version),
                         ),
-                        models.FieldCondition(key="status", match=models.MatchValue(value="approved")),
+                        models.FieldCondition(
+                            key="fact_set_version",
+                            match=models.MatchValue(value=fact_set_version),
+                        ),
+                        models.FieldCondition(
+                            key="status", match=models.MatchValue(value="approved")
+                        ),
                     ]
                 ),
                 limit=limit,
@@ -201,7 +258,10 @@ class QdrantKnowledgeProvider:
                 with_vectors=False,
             )
             return [
-                RetrievedFact(fact=ProductFact.model_validate(point.payload), score=float(point.score))
+                RetrievedFact(
+                    fact=ProductFact.model_validate(point.payload),
+                    score=float(point.score),
+                )
                 for point in result.points
             ]
 

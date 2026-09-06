@@ -32,16 +32,23 @@ class GroundedWordingPayload(BaseModel):
 
 
 class GroqStructuredClient:
-    def __init__(self, *, api_key: str, model: str, timeout_seconds: float, temperature: float) -> None:
+    def __init__(
+        self, *, api_key: str, model: str, timeout_seconds: float, temperature: float
+    ) -> None:
         self._client = AsyncGroq(api_key=api_key, timeout=timeout_seconds)
         self.model = model
         self.temperature = temperature
 
-    async def structured(self, *, system: str, user: str, schema: type[BaseModel]) -> BaseModel:
+    async def structured(
+        self, *, system: str, user: str, schema: type[BaseModel]
+    ) -> BaseModel:
         response = await self._client.chat.completions.create(
             model=self.model,
             temperature=self.temperature,
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
             response_format={
                 "type": "json_schema",
                 "json_schema": {
@@ -55,11 +62,17 @@ class GroqStructuredClient:
         return schema.model_validate(json.loads(content))
 
     async def interpret(self, *, system: str, user: str) -> InterpretationPayload:
-        result = await self.structured(system=system, user=user, schema=InterpretationPayload)
+        result = await self.structured(
+            system=system, user=user, schema=InterpretationPayload
+        )
         return InterpretationPayload.model_validate(result)
 
-    async def word_grounded_answer(self, *, system: str, user: str) -> GroundedWordingPayload:
-        result = await self.structured(system=system, user=user, schema=GroundedWordingPayload)
+    async def word_grounded_answer(
+        self, *, system: str, user: str
+    ) -> GroundedWordingPayload:
+        result = await self.structured(
+            system=system, user=user, schema=GroundedWordingPayload
+        )
         return GroundedWordingPayload.model_validate(result)
 
     async def close(self) -> None:

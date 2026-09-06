@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import Any, Callable
+from typing import Any
 
 from .enums import FieldId
 
@@ -40,12 +41,12 @@ def _normalise_money(value: Any) -> Decimal:
 
     text = _clean_text(value).lower().replace(",", "")
     text = re.sub(r"(?:rs\.?|inr|rupees?)", "", text).strip()
-    multiplier = Decimal("1")
+    multiplier = Decimal(1)
     if re.search(r"\b(?:lakh|lac)\b", text):
-        multiplier = Decimal("100000")
+        multiplier = Decimal(100000)
         text = re.sub(r"\b(?:lakh|lac)s?\b", "", text).strip()
     elif re.search(r"\bthousand\b", text):
-        multiplier = Decimal("1000")
+        multiplier = Decimal(1000)
         text = re.sub(r"\bthousand\b", "", text).strip()
     match = re.search(r"-?\d+(?:\.\d+)?", text)
     if not match:
@@ -60,15 +61,36 @@ def _normalise_money(value: Any) -> Decimal:
 
 
 SMALL_NUMBERS = {
-    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
-    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+    "zero": 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
     "nineteen": 19,
 }
 TENS = {
-    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
-    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+    "twenty": 20,
+    "thirty": 30,
+    "forty": 40,
+    "fifty": 50,
+    "sixty": 60,
+    "seventy": 70,
+    "eighty": 80,
+    "ninety": 90,
 }
 
 
@@ -130,8 +152,10 @@ def _normalise_contact(value: Any) -> str:
 
 
 def _validate_amount(value: Decimal) -> None:
-    if not Decimal("50000") <= value <= Decimal("200000"):
-        raise ValueError("The demonstration amount must be between Rs. 50,000 and Rs. 2,00,000.")
+    if not Decimal(50000) <= value <= Decimal(200000):
+        raise ValueError(
+            "The demonstration amount must be between Rs. 50,000 and Rs. 2,00,000."
+        )
 
 
 def _validate_non_negative(value: Decimal) -> None:
@@ -156,7 +180,9 @@ def _validate_employment(value: str) -> None:
 
 def _validate_contact(value: str) -> None:
     if value not in {"phone", "email"}:
-        raise ValueError("Contact preference must be phone or email; no contact detail is collected.")
+        raise ValueError(
+            "Contact preference must be phone or email; no contact detail is collected."
+        )
 
 
 def _validate_short_text(value: str) -> None:

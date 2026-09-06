@@ -4,7 +4,9 @@ from saarthi.domain.reducer import GuardedReducer
 from saarthi.storage.repository import InMemoryStateRepository
 
 
-async def test_duplicate_patch_returns_recorded_result_without_second_mutation(application, conversation):
+async def test_duplicate_patch_returns_recorded_result_without_second_mutation(
+    application, conversation
+):
     repository = InMemoryStateRepository()
     await repository.create(application, conversation)
     patch = ApplicationPatch(
@@ -19,8 +21,12 @@ async def test_duplicate_patch_returns_recorded_result_without_second_mutation(a
         source_span="one lakh",
         explicit_target=True,
     )
-    first = await repository.commit_patch(patch, current_generation_id=1, reducer=GuardedReducer())
-    second = await repository.commit_patch(patch, current_generation_id=1, reducer=GuardedReducer())
+    first = await repository.commit_patch(
+        patch, current_generation_id=1, reducer=GuardedReducer()
+    )
+    second = await repository.commit_patch(
+        patch, current_generation_id=1, reducer=GuardedReducer()
+    )
     stored = await repository.get_draft(application.application_id)
     assert first.model_dump() == second.model_dump()
     assert stored.revision == 1

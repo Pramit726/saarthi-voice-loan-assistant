@@ -20,16 +20,58 @@ def payload(**overrides) -> InterpretationPayload:
     return InterpretationPayload.model_validate(values)
 
 
-def test_plain_explicit_answer_remains_write_candidate(transcript_factory, conversation):
-    result = RetrievedFewShotInterpreter._guard(payload(), transcript_factory("one lakh"), conversation)
+def test_plain_explicit_answer_remains_write_candidate(
+    transcript_factory, conversation
+):
+    result = RetrievedFewShotInterpreter._guard(
+        payload(), transcript_factory("one lakh"), conversation
+    )
     assert result.route is TurnRoute.FIELD_ANSWER
     assert result.target_field is FieldId.REQUESTED_AMOUNT
     assert result.explicit_write is True
 
 
+def test_plain_current_field_answer_does_not_depend_on_model_write_flag(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.PREFERRED_TENURE
+    result = RetrievedFewShotInterpreter._guard(
+        payload(
+            target_field="preferred_tenure",
+            candidate_value=12,
+            source_span="Twelve months.",
+            explicit_write=False,
+        ),
+        transcript_factory("Twelve months."),
+        conversation,
+    )
+    assert result.target_field is FieldId.PREFERRED_TENURE
+    assert result.candidate_value == 12
+    assert result.explicit_write is True
+
+
+def test_plain_answer_for_non_pending_field_is_not_implicitly_writable(
+    transcript_factory, conversation
+):
+    result = RetrievedFewShotInterpreter._guard(
+        payload(
+            target_field="preferred_tenure", candidate_value=12, explicit_write=False
+        ),
+        transcript_factory("Twelve months."),
+        conversation,
+    )
+    assert result.target_field is FieldId.PREFERRED_TENURE
+    assert result.explicit_write is False
+
+
 def test_question_can_never_become_write_candidate(transcript_factory, conversation):
     result = RetrievedFewShotInterpreter._guard(
-        payload(acts=["doubt"], route="product_question", candidate_value=None, explicit_write=True),
+        payload(
+            acts=["doubt"],
+            route="product_question",
+            candidate_value=None,
+            explicit_write=True,
+        ),
         transcript_factory("what is the processing fee?"),
         conversation,
     )
@@ -39,7 +81,11 @@ def test_question_can_never_become_write_candidate(transcript_factory, conversat
 
 def test_mixed_answer_and_doubt_is_held(transcript_factory, conversation):
     result = RetrievedFewShotInterpreter._guard(
-        payload(acts=["answer", "doubt", "mixed"], route="calculation", candidate_value=100000),
+        payload(
+            acts=["answer", "doubt", "mixed"],
+            route="calculation",
+            candidate_value=100000,
+        ),
         transcript_factory("one lakh, but what will I receive?"),
         conversation,
     )
@@ -57,7 +103,9 @@ def test_low_stt_confidence_forces_clarification(transcript_factory, conversatio
 
 
 def test_control_is_resolved_without_llm(transcript_factory):
-    result = RetrievedFewShotInterpreter._direct_control(transcript_factory("please stop speaking"))
+    result = RetrievedFewShotInterpreter._direct_control(
+        transcript_factory("please stop speaking")
+    )
     assert result is not None
     assert result.route is TurnRoute.CONTROL
     assert result.explicit_write is False

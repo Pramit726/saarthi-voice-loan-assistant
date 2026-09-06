@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP, getcontext
+from decimal import ROUND_HALF_UP, Decimal, getcontext
 
 from saarthi.domain.contracts import ApplicationDraft, FinancialProjection
 from saarthi.domain.enums import FieldId
-
 
 getcontext().prec = 28
 PAISE = Decimal("0.01")
@@ -25,15 +24,17 @@ class FinancialCalculator:
         amount_record = draft.fields.get(FieldId.REQUESTED_AMOUNT)
         tenure_record = draft.fields.get(FieldId.PREFERRED_TENURE)
         if not amount_record or not tenure_record:
-            raise ProjectionUnavailable("Requested amount and preferred tenure must be confirmed first.")
+            raise ProjectionUnavailable(
+                "Requested amount and preferred tenure must be confirmed first."
+            )
 
         principal = Decimal(str(amount_record.typed_value))
         tenure = int(tenure_record.typed_value)
-        monthly_rate = self.annual_rate_percent / Decimal("1200")
-        growth = (Decimal("1") + monthly_rate) ** tenure
-        emi = principal * monthly_rate * growth / (growth - Decimal("1"))
-        processing_fee = principal * self.processing_fee_percent / Decimal("100")
-        tax = processing_fee * self.tax_percent / Decimal("100")
+        monthly_rate = self.annual_rate_percent / Decimal(1200)
+        growth = (Decimal(1) + monthly_rate) ** tenure
+        emi = principal * monthly_rate * growth / (growth - Decimal(1))
+        processing_fee = principal * self.processing_fee_percent / Decimal(100)
+        tax = processing_fee * self.tax_percent / Decimal(100)
         total_deduction = processing_fee + tax
         net_disbursal = principal - total_deduction
         total_repayment = emi * tenure

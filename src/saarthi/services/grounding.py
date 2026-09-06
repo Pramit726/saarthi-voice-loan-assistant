@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from typing import Protocol
 
 from saarthi.domain.contracts import (
     ApplicationDraft,
@@ -102,7 +101,9 @@ If the evidence does not answer the question, return no segments and no IDs."""
             completeness_passed=True,
         )
 
-    def _calculation_answer(self, question: str, draft: ApplicationDraft) -> GroundedAnswer:
+    def _calculation_answer(
+        self, question: str, draft: ApplicationDraft
+    ) -> GroundedAnswer:
         try:
             projection = self.calculator.calculate(draft)
         except ProjectionUnavailable as exc:
@@ -118,7 +119,12 @@ If the evidence does not answer the question, return no segments and no IDs."""
 
         calculation_id = projection.projection_id
         lowered = question.casefold()
-        if "receive" in lowered or "get" in lowered or "disburs" in lowered or "account" in lowered:
+        if (
+            "receive" in lowered
+            or "get" in lowered
+            or "disburs" in lowered
+            or "account" in lowered
+        ):
             text = f"The calculated net amount is Rs. {projection.net_disbursal}."
             labelled_values = {"net_disbursal": str(projection.net_disbursal)}
         elif "fee" in lowered or "deduct" in lowered:

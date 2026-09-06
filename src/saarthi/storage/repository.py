@@ -16,13 +16,20 @@ from saarthi.domain.reducer import GuardedReducer
 
 class StateRepository(Protocol):
     async def initialize(self) -> None: ...
-    async def create(self, draft: ApplicationDraft, state: ConversationState) -> None: ...
+    async def create(
+        self, draft: ApplicationDraft, state: ConversationState
+    ) -> None: ...
     async def get_draft(self, application_id: str) -> ApplicationDraft | None: ...
     async def get_state(self, session_id: str) -> ConversationState | None: ...
     async def save_state(self, state: ConversationState) -> None: ...
-    async def cancel_draft(self, application_id: str, session_id: str) -> ApplicationDraft: ...
+    async def cancel_draft(
+        self, application_id: str, session_id: str
+    ) -> ApplicationDraft: ...
     async def attach_projection(
-        self, application_id: str, expected_revision: int, projection: FinancialProjection
+        self,
+        application_id: str,
+        expected_revision: int,
+        projection: FinancialProjection,
     ) -> ApplicationDraft: ...
     async def commit_patch(
         self,
@@ -67,12 +74,14 @@ class InMemoryStateRepository:
             raise KeyError(state.session_id)
         self.states[state.session_id] = deepcopy(state)
 
-    async def cancel_draft(self, application_id: str, session_id: str) -> ApplicationDraft:
+    async def cancel_draft(
+        self, application_id: str, session_id: str
+    ) -> ApplicationDraft:
         draft = self.drafts[application_id]
         if draft.owner_session_id != session_id:
             raise PermissionError("session_mismatch")
-        from saarthi.domain.enums import DraftStatus
         from saarthi.domain.contracts import utc_now
+        from saarthi.domain.enums import DraftStatus
 
         draft.status = DraftStatus.CANCELLED
         draft.updated_at = utc_now()
@@ -80,10 +89,16 @@ class InMemoryStateRepository:
         return deepcopy(draft)
 
     async def attach_projection(
-        self, application_id: str, expected_revision: int, projection: FinancialProjection
+        self,
+        application_id: str,
+        expected_revision: int,
+        projection: FinancialProjection,
     ) -> ApplicationDraft:
         draft = self.drafts[application_id]
-        if draft.revision != expected_revision or projection.source_application_revision != expected_revision:
+        if (
+            draft.revision != expected_revision
+            or projection.source_application_revision != expected_revision
+        ):
             raise ValueError("stale_projection")
         draft.current_projection = projection.model_copy(deep=True)
         self.drafts[application_id] = deepcopy(draft)

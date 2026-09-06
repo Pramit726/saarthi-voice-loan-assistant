@@ -7,7 +7,6 @@ from num2words import num2words
 
 from saarthi.domain.contracts import FinancialProjection, ResponsePlan, SpeechSegment
 
-
 MARKDOWN_RE = re.compile(r"[*_#`>|]+")
 
 
@@ -49,7 +48,9 @@ class ListenerRenderer:
     def projection_plan(self, projection: FinancialProjection) -> ResponsePlan:
         values = {
             "requested_amount": str(projection.requested_amount),
-            "annual_interest_rate_percent": str(projection.annual_interest_rate_percent),
+            "annual_interest_rate_percent": str(
+                projection.annual_interest_rate_percent
+            ),
             "tenure_months": str(projection.tenure_months),
             "processing_fee": str(projection.processing_fee),
             "tax_on_processing_fee": str(projection.tax_on_processing_fee),
@@ -72,7 +73,12 @@ class ListenerRenderer:
             purpose="financial_summary",
             message_segments=segments,
             labelled_values=values,
-            required_disclosures=["synthetic", "draft_only", "not_submitted", "not_approved"],
+            required_disclosures=[
+                "synthetic",
+                "draft_only",
+                "not_submitted",
+                "not_approved",
+            ],
             release_gates=[],
         )
 
@@ -81,7 +87,9 @@ class ListenerRenderer:
         return {
             "label": "Draft for review - not submitted",
             "requested_amount": str(projection.requested_amount),
-            "annual_interest_rate_percent": str(projection.annual_interest_rate_percent),
+            "annual_interest_rate_percent": str(
+                projection.annual_interest_rate_percent
+            ),
             "tenure_months": projection.tenure_months,
             "processing_fee": str(projection.processing_fee),
             "tax_on_processing_fee": str(projection.tax_on_processing_fee),
@@ -95,7 +103,15 @@ class ListenerRenderer:
         }
 
     @staticmethod
-    def verify_projection_labels(plan: ResponsePlan, projection: FinancialProjection) -> bool:
+    def verify_projection_labels(
+        plan: ResponsePlan, projection: FinancialProjection
+    ) -> bool:
         expected = ListenerRenderer.written_projection(projection)
-        comparable = {key: str(value) for key, value in expected.items() if key in plan.labelled_values}
-        return bool(comparable) and all(plan.labelled_values[key] == value for key, value in comparable.items())
+        comparable = {
+            key: str(value)
+            for key, value in expected.items()
+            if key in plan.labelled_values
+        }
+        return bool(comparable) and all(
+            plan.labelled_values[key] == value for key, value in comparable.items()
+        )

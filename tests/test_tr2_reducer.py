@@ -21,7 +21,9 @@ def patch(application, **overrides) -> ApplicationPatch:
 
 
 def test_valid_patch_changes_exactly_one_field_and_one_revision(application):
-    result = GuardedReducer().apply(application, patch(application), current_generation_id=1)
+    result = GuardedReducer().apply(
+        application, patch(application), current_generation_id=1
+    )
     assert result.accepted
     assert result.new_revision == 1
     assert set(result.draft.fields) == {FieldId.REQUESTED_AMOUNT}
@@ -29,8 +31,20 @@ def test_valid_patch_changes_exactly_one_field_and_one_revision(application):
     assert application.fields == {}
 
 
+def test_spoken_indian_amount_is_normalized_before_commit(application):
+    result = GuardedReducer().apply(
+        application,
+        patch(application, normalized_candidate="one lakh rupees"),
+        current_generation_id=1,
+    )
+    assert result.accepted
+    assert result.draft.fields[FieldId.REQUESTED_AMOUNT].typed_value == 100000
+
+
 def test_stale_generation_has_no_effect(application):
-    result = GuardedReducer().apply(application, patch(application), current_generation_id=2)
+    result = GuardedReducer().apply(
+        application, patch(application), current_generation_id=2
+    )
     assert not result.accepted
     assert result.reason_code == "stale_generation"
     assert result.new_revision == application.revision
@@ -48,7 +62,9 @@ def test_revision_conflict_has_no_effect(application):
 
 def test_unconfirmed_correction_is_rejected(application):
     reducer = GuardedReducer()
-    first = reducer.apply(application, patch(application), current_generation_id=1).draft
+    first = reducer.apply(
+        application, patch(application), current_generation_id=1
+    ).draft
     correction = patch(
         first,
         idempotency_key="turn-2:proposal-2",
@@ -68,7 +84,9 @@ def test_unconfirmed_correction_is_rejected(application):
 
 def test_confirmed_correction_changes_only_target(application):
     reducer = GuardedReducer()
-    first = reducer.apply(application, patch(application), current_generation_id=1).draft
+    first = reducer.apply(
+        application, patch(application), current_generation_id=1
+    ).draft
     second_patch = patch(
         first,
         idempotency_key="turn-2:purpose",

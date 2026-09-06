@@ -4,7 +4,9 @@ from saarthi.services.calculator import FinancialCalculator
 from saarthi.storage.repository import InMemoryStateRepository
 
 
-async def test_projection_can_attach_only_to_its_source_revision(application, conversation):
+async def test_projection_can_attach_only_to_its_source_revision(
+    application, conversation
+):
     application.revision = 2
     application.fields = {
         FieldId.REQUESTED_AMOUNT: CommittedFieldValue(
@@ -31,10 +33,13 @@ async def test_projection_can_attach_only_to_its_source_revision(application, co
     repository = InMemoryStateRepository()
     await repository.create(application, conversation)
     projection = FinancialCalculator().calculate(application)
-    stored = await repository.attach_projection(application.application_id, 2, projection)
+    stored = await repository.attach_projection(
+        application.application_id, 2, projection
+    )
     assert stored.current_projection.projection_id == projection.projection_id
 
     stale = projection.model_copy(update={"source_application_revision": 1})
     import pytest
+
     with pytest.raises(ValueError, match="stale_projection"):
         await repository.attach_projection(application.application_id, 2, stale)

@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from .contracts import ActiveJob, ConversationState, ResumeCheckpoint, SpeechSegment, TurnProposal, utc_now
+from .contracts import (
+    ActiveJob,
+    ConversationState,
+    ResumeCheckpoint,
+    TurnProposal,
+    utc_now,
+)
 from .enums import (
     ControlCommand,
     ConversationPhase,
@@ -22,7 +28,9 @@ class StaleWorkError(RuntimeError):
 class ConversationStateMachine:
     """Owns workflow position and generation fences, never application values."""
 
-    def begin_final_turn(self, state: ConversationState, turn_id: str) -> ConversationState:
+    def begin_final_turn(
+        self, state: ConversationState, turn_id: str
+    ) -> ConversationState:
         updated = deepcopy(state)
         updated.current_turn_id = turn_id
         updated.current_proposal = None
@@ -33,10 +41,16 @@ class ConversationStateMachine:
         updated.updated_at = utc_now()
         return updated
 
-    def accept_proposal(self, state: ConversationState, proposal: TurnProposal) -> ConversationState:
+    def accept_proposal(
+        self, state: ConversationState, proposal: TurnProposal
+    ) -> ConversationState:
         updated = deepcopy(state)
         updated.current_proposal = proposal
-        if proposal.route in {TurnRoute.FIELD_DOUBT, TurnRoute.PRODUCT_QUESTION, TurnRoute.CALCULATION}:
+        if proposal.route in {
+            TurnRoute.FIELD_DOUBT,
+            TurnRoute.PRODUCT_QUESTION,
+            TurnRoute.CALCULATION,
+        }:
             self._save_resume_checkpoint(updated)
             updated.phase = ConversationPhase.EXPLANATION
         elif proposal.route is TurnRoute.CORRECTION:
@@ -50,11 +64,19 @@ class ConversationStateMachine:
         updated.updated_at = utc_now()
         return updated
 
-    def after_commit(self, state: ConversationState, committed_fields: set[FieldId], revision: int) -> ConversationState:
+    def after_commit(
+        self, state: ConversationState, committed_fields: set[FieldId], revision: int
+    ) -> ConversationState:
         updated = deepcopy(state)
         updated.linked_application_revision = revision
-        updated.pending_field = next_unanswered_field({field_id: True for field_id in committed_fields})
-        updated.phase = ConversationPhase.REVIEW if updated.pending_field is None else ConversationPhase.COLLECTION
+        updated.pending_field = next_unanswered_field(
+            {field_id: True for field_id in committed_fields}
+        )
+        updated.phase = (
+            ConversationPhase.REVIEW
+            if updated.pending_field is None
+            else ConversationPhase.COLLECTION
+        )
         updated.resume_checkpoint = None
         updated.pending_write_confirmation = None
         updated.state_version += 1
@@ -67,7 +89,9 @@ class ConversationStateMachine:
         return updated
 
     @staticmethod
-    def hold_for_confirmation(state: ConversationState, proposal: TurnProposal) -> ConversationState:
+    def hold_for_confirmation(
+        state: ConversationState, proposal: TurnProposal
+    ) -> ConversationState:
         updated = deepcopy(state)
         updated.pending_write_confirmation = proposal
         updated.phase = ConversationPhase.CLARIFICATION
@@ -84,7 +108,9 @@ class ConversationStateMachine:
         updated.updated_at = utc_now()
         return updated
 
-    def restore_checkpoint(self, state: ConversationState, current_application_revision: int) -> ConversationState:
+    def restore_checkpoint(
+        self, state: ConversationState, current_application_revision: int
+    ) -> ConversationState:
         updated = deepcopy(state)
         checkpoint = updated.resume_checkpoint
         if checkpoint is None:
@@ -99,7 +125,9 @@ class ConversationStateMachine:
         updated.updated_at = utc_now()
         return updated
 
-    def apply_control(self, state: ConversationState, command: ControlCommand) -> ConversationState:
+    def apply_control(
+        self, state: ConversationState, command: ControlCommand
+    ) -> ConversationState:
         updated = deepcopy(state)
         updated.generation_id += 1
         self._cancel_old_jobs(updated)
@@ -113,9 +141,15 @@ class ConversationStateMachine:
             updated.status = SessionStatus.PAUSED
         elif command is ControlCommand.RESUME:
             updated.status = SessionStatus.ACTIVE
-            updated = self.restore_checkpoint(updated, updated.linked_application_revision)
+            updated = self.restore_checkpoint(
+                updated, updated.linked_application_revision
+            )
         elif command is ControlCommand.GO_BACK:
-            current_index = FIELD_ORDER.index(updated.pending_field) if updated.pending_field in FIELD_ORDER else len(FIELD_ORDER)
+            current_index = (
+                FIELD_ORDER.index(updated.pending_field)
+                if updated.pending_field in FIELD_ORDER
+                else len(FIELD_ORDER)
+            )
             if current_index > 0:
                 updated.pending_field = FIELD_ORDER[current_index - 1]
                 updated.phase = ConversationPhase.COLLECTION
@@ -144,13 +178,19 @@ class ConversationStateMachine:
             raise StaleWorkError(job.job_id)
 
     @staticmethod
-    def mark_segment_delivered(state: ConversationState, segment_id: str) -> ConversationState:
+    def mark_segment_delivered(
+        state: ConversationState, segment_id: str
+    ) -> ConversationState:
         updated = deepcopy(state)
         for segment in updated.output_queue:
             if segment.segment_id == segment_id:
                 segment.delivery_status = DeliveryStatus.DELIVERED
                 segment.heard_character_count = len(segment.text)
-        delivered = [item for item in updated.output_queue if item.delivery_status is DeliveryStatus.DELIVERED]
+        delivered = [
+            item
+            for item in updated.output_queue
+            if item.delivery_status is DeliveryStatus.DELIVERED
+        ]
         if delivered:
             updated.last_fully_heard_response = delivered
         updated.updated_at = utc_now()
@@ -185,6 +225,9 @@ class ConversationStateMachine:
     @staticmethod
     def _cancel_output(state: ConversationState) -> None:
         for segment in state.output_queue:
-            if segment.delivery_status not in {DeliveryStatus.DELIVERED, DeliveryStatus.CANCELLED}:
+            if segment.delivery_status not in {
+                DeliveryStatus.DELIVERED,
+                DeliveryStatus.CANCELLED,
+            }:
                 segment.delivery_status = DeliveryStatus.CANCELLED
         state.output_queue = []

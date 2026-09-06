@@ -17,7 +17,9 @@ class TraceReplayService:
             expected_previous = int(event.payload["previous_revision"])
             new_revision = int(event.payload["new_revision"])
             if expected_previous != revision or new_revision != revision + 1:
-                raise ValueError("Trace contains a non-contiguous application revision.")
+                raise ValueError(
+                    "Trace contains a non-contiguous application revision."
+                )
             field = event.payload.get("changed_field")
             if not field:
                 raise ValueError("Accepted patch trace is missing the changed field.")

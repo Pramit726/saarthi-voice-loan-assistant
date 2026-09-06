@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from saarthi.config import Settings
 from saarthi.providers.cache import CachedKnowledgeProvider, ResilientKnowledgeProvider
 from saarthi.providers.groq import GroqStructuredClient
-from saarthi.providers.knowledge import LocalKnowledgeProvider, QdrantKnowledgeProvider, load_product_facts
+from saarthi.providers.knowledge import (
+    LocalKnowledgeProvider,
+    QdrantKnowledgeProvider,
+    load_product_facts,
+)
 from saarthi.providers.livekit import LiveKitTokenProvider
 from saarthi.services.acceptance import AcceptanceService
 from saarthi.services.calculator import FinancialCalculator

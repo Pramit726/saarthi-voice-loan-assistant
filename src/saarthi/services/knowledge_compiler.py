@@ -50,7 +50,9 @@ class KnowledgeCompiler:
         fact_set_version: str,
     ) -> list[ProductFact]:
         if len(source_text) > 24000:
-            raise ValueError("Source must be chunked into sections of at most 24,000 characters.")
+            raise ValueError(
+                "Source must be chunked into sections of at most 24,000 characters."
+            )
         result = await self.client.structured(
             system="""Convert the supplied fictional product sheet into atomic factual candidates.
 Each candidate must express one independently retrievable product rule, definition, cost, condition,
@@ -75,7 +77,10 @@ Return draft candidates only; approval happens outside the model.""",
                     topic=candidate.topic,
                     text=candidate.text,
                     aliases=candidate.aliases,
-                    numeric_values={item.label: Decimal(str(item.value)) for item in candidate.numeric_values},
+                    numeric_values={
+                        item.label: Decimal(str(item.value))
+                        for item in candidate.numeric_values
+                    },
                     source_section=candidate.source_section,
                 )
             )
@@ -90,15 +95,25 @@ Return draft candidates only; approval happens outside the model.""",
         for fact in facts:
             if fact.status not in {"draft", "approved"}:
                 raise ValueError(f"Invalid status for {fact.fact_id}.")
-            if not fact.text.strip() or not fact.topic.strip() or not fact.source_section.strip():
+            if (
+                not fact.text.strip()
+                or not fact.topic.strip()
+                or not fact.source_section.strip()
+            ):
                 raise ValueError(f"Fact {fact.fact_id} is incomplete.")
 
     @staticmethod
-    def approve(facts: list[ProductFact], *, approved_ids: set[str]) -> list[ProductFact]:
+    def approve(
+        facts: list[ProductFact], *, approved_ids: set[str]
+    ) -> list[ProductFact]:
         unknown = approved_ids - {fact.fact_id for fact in facts}
         if unknown:
             raise ValueError(f"Unknown fact IDs: {sorted(unknown)}")
         return [
-            fact.model_copy(update={"status": "approved" if fact.fact_id in approved_ids else "draft"})
+            fact.model_copy(
+                update={
+                    "status": "approved" if fact.fact_id in approved_ids else "draft"
+                }
+            )
             for fact in facts
         ]

@@ -2,7 +2,18 @@ from __future__ import annotations
 
 import json
 
-from sqlalchemy import Column, DateTime, Integer, MetaData, String, Table, Text, insert, select, update
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Text,
+    insert,
+    select,
+    update,
+)
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from saarthi.domain.contracts import (
@@ -14,9 +25,8 @@ from saarthi.domain.contracts import (
     TraceEvent,
     utc_now,
 )
-from saarthi.domain.reducer import GuardedReducer
 from saarthi.domain.enums import DraftStatus
-
+from saarthi.domain.reducer import GuardedReducer
 
 metadata = MetaData()
 
@@ -99,7 +109,9 @@ class SqliteStateRepository:
         async with self.engine.connect() as connection:
             row = (
                 await connection.execute(
-                    select(applications.c.payload).where(applications.c.application_id == application_id)
+                    select(applications.c.payload).where(
+                        applications.c.application_id == application_id
+                    )
                 )
             ).first()
         return ApplicationDraft.model_validate_json(row.payload) if row else None
@@ -108,7 +120,9 @@ class SqliteStateRepository:
         async with self.engine.connect() as connection:
             row = (
                 await connection.execute(
-                    select(sessions.c.payload).where(sessions.c.session_id == session_id)
+                    select(sessions.c.payload).where(
+                        sessions.c.session_id == session_id
+                    )
                 )
             ).first()
         return ConversationState.model_validate_json(row.payload) if row else None
@@ -127,7 +141,9 @@ class SqliteStateRepository:
             if result.rowcount != 1:
                 raise KeyError(state.session_id)
 
-    async def cancel_draft(self, application_id: str, session_id: str) -> ApplicationDraft:
+    async def cancel_draft(
+        self, application_id: str, session_id: str
+    ) -> ApplicationDraft:
         async with self.engine.begin() as connection:
             row = (
                 await connection.execute(
@@ -150,7 +166,10 @@ class SqliteStateRepository:
             return draft
 
     async def attach_projection(
-        self, application_id: str, expected_revision: int, projection: FinancialProjection
+        self,
+        application_id: str,
+        expected_revision: int,
+        projection: FinancialProjection,
     ) -> ApplicationDraft:
         async with self.engine.begin() as connection:
             row = (

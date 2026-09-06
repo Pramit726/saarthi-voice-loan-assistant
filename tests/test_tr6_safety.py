@@ -28,7 +28,17 @@ def test_adversarial_response_is_blocked(unsafe_text):
 
 @pytest.mark.parametrize(
     "action",
-    ["submit", "approve", "reject", "sign", "mandate", "pay", "disburse", "credit_check", "kyc"],
+    [
+        "submit",
+        "approve",
+        "reject",
+        "sign",
+        "mandate",
+        "pay",
+        "disburse",
+        "credit_check",
+        "kyc",
+    ],
 )
 def test_forbidden_action_is_physically_absent(action):
     with pytest.raises(PermissionError):
@@ -38,7 +48,9 @@ def test_forbidden_action_is_physically_absent(action):
 def test_decline_is_treated_neutrally():
     plan = ResponsePlan(
         purpose="decline",
-        message_segments=["Okay. The draft is cancelled, and no loan action was taken."],
+        message_segments=[
+            "Okay. The draft is cancelled, and no loan action was taken."
+        ],
         allowed_action=AllowedAction.SESSION_CONTROL,
     )
     assert ResponseGuard().evaluate(plan).releasable

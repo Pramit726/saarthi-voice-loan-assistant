@@ -1,7 +1,9 @@
 import pytest
 
-
-pytestmark = [pytest.mark.manual, pytest.mark.skip(reason="Requires two listeners and a live voice session")]
+pytestmark = [
+    pytest.mark.manual,
+    pytest.mark.skip(reason="Requires two listeners and a live voice session"),
+]
 
 
 def test_rime_financial_pairwise_listening_sheet():

@@ -6,8 +6,12 @@ from saarthi.config import get_settings
 from saarthi.providers.groq import GroqStructuredClient
 from saarthi.providers.knowledge import QdrantKnowledgeProvider, load_product_facts
 
-
-pytestmark = [pytest.mark.live, pytest.mark.skipif(os.getenv("RUN_LIVE_TESTS") != "1", reason="live tests are opt-in")]
+pytestmark = [
+    pytest.mark.live,
+    pytest.mark.skipif(
+        os.getenv("RUN_LIVE_TESTS") != "1", reason="live tests are opt-in"
+    ),
+]
 
 
 async def test_qdrant_ingestion_and_version_scoped_retrieval():

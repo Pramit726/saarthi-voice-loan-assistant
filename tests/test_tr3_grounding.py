@@ -7,8 +7,12 @@ from saarthi.services.grounding import GroundedAnswerService
 
 
 def service() -> GroundedAnswerService:
-    facts = load_product_facts(REPOSITORY_ROOT / "data" / "product" / "saarthi_product_facts_v1.json")
-    return GroundedAnswerService(LocalKnowledgeProvider(facts), calculator=FinancialCalculator())
+    facts = load_product_facts(
+        REPOSITORY_ROOT / "data" / "product" / "saarthi_product_facts_v1.json"
+    )
+    return GroundedAnswerService(
+        LocalKnowledgeProvider(facts), calculator=FinancialCalculator()
+    )
 
 
 async def test_supported_fee_question_returns_approved_fact_id(application):
@@ -19,7 +23,9 @@ async def test_supported_fee_question_returns_approved_fact_id(application):
     )
     assert answer.support_status is SupportStatus.SUPPORTED
     assert answer.supporting_fact_ids
-    assert all(identifier.startswith("SPL-") for identifier in answer.supporting_fact_ids)
+    assert all(
+        identifier.startswith("SPL-") for identifier in answer.supporting_fact_ids
+    )
 
 
 async def test_unanswerable_question_abstains(application):
@@ -33,7 +39,9 @@ async def test_unanswerable_question_abstains(application):
 
 
 async def test_calculation_requires_confirmed_amount_and_tenure(application):
-    answer = await service().answer("What is my EMI?", route=TurnRoute.CALCULATION, draft=application)
+    answer = await service().answer(
+        "What is my EMI?", route=TurnRoute.CALCULATION, draft=application
+    )
     assert answer.support_status is SupportStatus.UNSUPPORTED
     assert answer.abstention_reason
 
@@ -62,7 +70,9 @@ async def test_calculation_is_linked_and_labelled(application):
             last_change_kind=ChangeKind.INITIAL,
         ),
     }
-    answer = await service().answer("What is my EMI?", route=TurnRoute.CALCULATION, draft=application)
+    answer = await service().answer(
+        "What is my EMI?", route=TurnRoute.CALCULATION, draft=application
+    )
     assert answer.support_status is SupportStatus.SUPPORTED
     assert answer.calculation_ids
     assert set(answer.labelled_values) == {"emi", "tenure_months"}

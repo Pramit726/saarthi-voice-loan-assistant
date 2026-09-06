@@ -61,8 +61,16 @@ def test_stale_job_is_detected(conversation):
 def test_only_fully_delivered_segment_enters_heard_history(conversation):
     machine = ConversationStateMachine()
     conversation.output_queue = [
-        SpeechSegment(response_id="r", segment_id="s1", order=0, generation_id=0, text="fully heard"),
-        SpeechSegment(response_id="r", segment_id="s2", order=1, generation_id=0, text="not heard"),
+        SpeechSegment(
+            response_id="r",
+            segment_id="s1",
+            order=0,
+            generation_id=0,
+            text="fully heard",
+        ),
+        SpeechSegment(
+            response_id="r", segment_id="s2", order=1, generation_id=0, text="not heard"
+        ),
     ]
     updated = machine.mark_segment_delivered(conversation, "s1")
     assert updated.last_fully_heard_response[0].segment_id == "s1"

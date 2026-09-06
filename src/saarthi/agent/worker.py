@@ -2,19 +2,26 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterable
 from contextlib import suppress
 from datetime import timedelta
-from typing import Any, AsyncIterable
+from typing import Any
 
 from dotenv import load_dotenv
-from livekit.agents import Agent, AgentServer, AgentSession, JobContext, TurnHandlingOptions, cli
+from livekit.agents import (
+    Agent,
+    AgentServer,
+    AgentSession,
+    JobContext,
+    TurnHandlingOptions,
+    cli,
+)
 from livekit.plugins import deepgram, rime
 
 from saarthi.config import get_settings
 from saarthi.domain.contracts import FinalTranscript, TraceEvent, new_id, utc_now
 from saarthi.domain.enums import DeliveryStatus
 from saarthi.runtime import build_runtime
-
 
 logger = logging.getLogger("saarthi.voice")
 load_dotenv()
@@ -157,9 +164,13 @@ async def entrypoint(ctx: JobContext) -> None:
             for segment in current.output_queue:
                 if segment.response_id == outcome.response_plan.response_id:
                     segment.delivery_status = (
-                        DeliveryStatus.INTERRUPTED if interrupted else DeliveryStatus.DELIVERED
+                        DeliveryStatus.INTERRUPTED
+                        if interrupted
+                        else DeliveryStatus.DELIVERED
                     )
-                    segment.heard_character_count = 0 if interrupted else len(segment.text)
+                    segment.heard_character_count = (
+                        0 if interrupted else len(segment.text)
+                    )
             if not interrupted:
                 current.last_fully_heard_response = [
                     item.model_copy(deep=True)
@@ -169,7 +180,9 @@ async def entrypoint(ctx: JobContext) -> None:
             await runtime.repository.save_state(current)
             await runtime.repository.append_event(
                 TraceEvent(
-                    event_type="speech_interrupted" if interrupted else "speech_delivered",
+                    event_type="speech_interrupted"
+                    if interrupted
+                    else "speech_delivered",
                     session_id=current.session_id,
                     application_id=current.application_id,
                     trace_id=current.trace_id,
@@ -198,13 +211,18 @@ async def entrypoint(ctx: JobContext) -> None:
 
     @voice_session.on("user_state_changed")
     def on_user_state_changed(event) -> None:
-        if str(getattr(event, "new_state", "")) == "speaking" and active.speech is not None:
+        if (
+            str(getattr(event, "new_state", "")) == "speaking"
+            and active.speech is not None
+        ):
             active.interrupt()
 
     try:
         await ctx.connect()
         await voice_session.start(
-            agent=SaarthiAgent(state.last_safe_prompt or "What loan amount would you like?"),
+            agent=SaarthiAgent(
+                state.last_safe_prompt or "What loan amount would you like?"
+            ),
             room=ctx.room,
         )
         await asyncio.Event().wait()

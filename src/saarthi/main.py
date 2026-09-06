@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
 from saarthi.api.routes import router
 from saarthi.config import get_settings
@@ -48,7 +48,9 @@ def create_app() -> FastAPI:
         return {
             "service": settings.app_name,
             "docs": "/docs",
-            "web": "/app" if web_dist.exists() else "Run the Vite development server in web/",
+            "web": "/app"
+            if web_dist.exists()
+            else "Run the Vite development server in web/",
             "boundary": "Synthetic reviewable draft only; no lending action exists.",
         }
 
@@ -60,7 +62,9 @@ app = create_app()
 
 def run_api() -> None:
     settings = get_settings()
-    uvicorn.run("saarthi.main:app", host=settings.api_host, port=settings.api_port, reload=False)
+    uvicorn.run(
+        "saarthi.main:app", host=settings.api_host, port=settings.api_port, reload=False
+    )
 
 
 if __name__ == "__main__":

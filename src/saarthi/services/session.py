@@ -1,8 +1,13 @@
 from __future__ import annotations
 
-from saarthi.domain.contracts import ApplicationDraft, ConversationState, TraceEvent, new_id
-from saarthi.domain.fields import FIELD_DEFINITIONS
+from saarthi.domain.contracts import (
+    ApplicationDraft,
+    ConversationState,
+    TraceEvent,
+    new_id,
+)
 from saarthi.domain.enums import FieldId
+from saarthi.domain.fields import FIELD_DEFINITIONS
 from saarthi.storage.repository import StateRepository
 
 
@@ -14,7 +19,9 @@ class SessionService:
         session_id = new_id("session")
         application_id = new_id("application")
         participant_id = new_id("borrower")
-        draft = ApplicationDraft(application_id=application_id, owner_session_id=session_id)
+        draft = ApplicationDraft(
+            application_id=application_id, owner_session_id=session_id
+        )
         state = ConversationState(
             session_id=session_id,
             application_id=application_id,

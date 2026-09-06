@@ -28,4 +28,6 @@ def test_duplicate_fact_ids_are_rejected():
     import pytest
 
     with pytest.raises(ValueError, match="unique"):
-        KnowledgeCompiler.validate_candidates([candidate("FACT-1"), candidate("FACT-1")])
+        KnowledgeCompiler.validate_candidates(
+            [candidate("FACT-1"), candidate("FACT-1")]
+        )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from typing import ClassVar
 
 from .contracts import (
     ApplicationDraft,
@@ -17,7 +18,10 @@ from .fields import FIELD_ORDER, FieldValidationError, normalise_and_validate
 class GuardedReducer:
     """The sole authority that may mutate committed application data."""
 
-    projection_dependencies = {FieldId.REQUESTED_AMOUNT, FieldId.PREFERRED_TENURE}
+    projection_dependencies: ClassVar[set[FieldId]] = {
+        FieldId.REQUESTED_AMOUNT,
+        FieldId.PREFERRED_TENURE,
+    }
 
     def apply(
         self,
@@ -42,7 +46,9 @@ class GuardedReducer:
             )
 
         try:
-            normalized = normalise_and_validate(patch.target_field, patch.normalized_candidate)
+            normalized = normalise_and_validate(
+                patch.target_field, patch.normalized_candidate
+            )
         except FieldValidationError as exc:
             return CommitResult(
                 accepted=False,
