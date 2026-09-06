@@ -28,13 +28,19 @@ def _decimal_for_ear(value: Decimal) -> str:
     return f"{num2words(int(whole), lang='en_IN')} point {spoken_fraction}"
 
 
+def _number_words_for_ear(value: int) -> str:
+    """Remove typography that can create unnatural TTS pauses."""
+
+    return num2words(value, lang="en_IN").replace(",", "").replace("-", " ")
+
+
 def _rupees_for_ear(value: Decimal) -> str:
     rounded = value.quantize(Decimal("0.01"))
     rupees = int(rounded)
     paise = int((rounded - Decimal(rupees)) * 100)
-    words = f"{num2words(rupees, lang='en_IN')} rupees"
+    words = f"{_number_words_for_ear(rupees)} rupees"
     if paise:
-        words += f" and {num2words(paise, lang='en_IN')} paise"
+        words += f" and {_number_words_for_ear(paise)} paise"
     return words
 
 

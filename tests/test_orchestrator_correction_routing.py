@@ -68,4 +68,77 @@ async def test_existing_field_answer_is_confirmed_before_correction(
     assert second.commit_result is not None
     assert second.commit_result.accepted
     assert second.draft.fields[FieldId.PREFERRED_TENURE].typed_value == 6
+    assert second.state.pending_field is FieldId.REQUESTED_AMOUNT
+    assert "Next question" in " ".join(second.response_plan.message_segments)
+    assert "loan amount" in " ".join(second.response_plan.message_segments)
     assert second.state.pending_write_confirmation is None
+
+
+async def test_confirmed_amount_correction_asks_next_unanswered_field(
+    application,
+    conversation,
+    transcript_factory,
+    proposal_factory,
+):
+    from conftest import ScriptedInterpreter, build_test_orchestrator
+
+    from saarthi.storage.repository import InMemoryStateRepository
+
+    values = {
+        FieldId.REQUESTED_AMOUNT: 100000,
+        FieldId.LOAN_PURPOSE: "home renovation",
+        FieldId.PREFERRED_TENURE: 12,
+        FieldId.EMPLOYMENT_TYPE: "salaried",
+    }
+    for field_id, value in values.items():
+        application.fields[field_id] = CommittedFieldValue(
+            field_id=field_id,
+            typed_value=value,
+            source_turn_id="earlier-turn",
+            source_span=str(value),
+            normalizer_version="test",
+            validator_version="test",
+            committed_at_revision=1,
+            last_change_kind=ChangeKind.INITIAL,
+        )
+    application.revision = 4
+    conversation.pending_field = FieldId.MONTHLY_INCOME
+    conversation.linked_application_revision = 4
+
+    correction_text = "Update the loan amount to eighty thousand."
+    confirmation_text = "yes"
+    interpreter = ScriptedInterpreter(
+        {
+            correction_text: proposal_factory(
+                route=TurnRoute.CORRECTION,
+                acts=[TurnAct.CORRECTION],
+                target=FieldId.REQUESTED_AMOUNT,
+                value=80000,
+                explicit_write=True,
+                rationale="user_correction",
+            ),
+            confirmation_text: proposal_factory(
+                route=TurnRoute.CORRECTION,
+                acts=[TurnAct.CORRECTION],
+                target=FieldId.REQUESTED_AMOUNT,
+                value=80000,
+                explicit_write=True,
+                rationale="confirmed_pending_write",
+            ),
+        }
+    )
+    repository = InMemoryStateRepository()
+    await repository.create(application, conversation)
+    orchestrator = build_test_orchestrator(repository, interpreter)
+
+    await orchestrator.process_final_transcript(transcript_factory(correction_text))
+    result = await orchestrator.process_final_transcript(
+        transcript_factory(confirmation_text)
+    )
+
+    assert result.commit_result is not None and result.commit_result.accepted
+    assert result.draft.fields[FieldId.REQUESTED_AMOUNT].typed_value == 80000
+    assert result.state.pending_field is FieldId.MONTHLY_INCOME
+    response = " ".join(result.response_plan.message_segments)
+    assert "Next question" in response
+    assert "monthly take-home income" in response

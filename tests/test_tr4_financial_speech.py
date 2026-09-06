@@ -2,7 +2,11 @@ from decimal import Decimal
 
 from saarthi.domain.contracts import FinancialProjection
 from saarthi.domain.policies import ResponseGuard
-from saarthi.services.renderer import ListenerRenderer, _clean_for_speech
+from saarthi.services.renderer import (
+    ListenerRenderer,
+    _clean_for_speech,
+    _rupees_for_ear,
+)
 
 
 def projection() -> FinancialProjection:
@@ -68,3 +72,12 @@ def test_grounded_financial_text_normalizes_currency_percent_and_acronyms():
     assert "E M I" in spoken
     assert "A P R" in spoken
     assert "K Y C" in spoken
+
+
+def test_money_renderer_avoids_punctuation_inside_spoken_amounts():
+    spoken = _rupees_for_ear(Decimal("8908.29"))
+    assert (
+        spoken == "eight thousand nine hundred and eight rupees and twenty nine paise"
+    )
+    assert "," not in spoken
+    assert "-" not in spoken

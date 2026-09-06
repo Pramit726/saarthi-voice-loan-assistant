@@ -32,7 +32,7 @@ class ResponsePlanner:
         resume = None
         if next_field:
             resume = FIELD_DEFINITIONS[next_field].prompt
-            segments.append(resume)
+            segments[0] += f" Next question. {resume}"
         else:
             segments.append(
                 "Your draft is ready for review. It has not been submitted."
