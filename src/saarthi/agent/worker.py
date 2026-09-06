@@ -155,9 +155,9 @@ async def entrypoint(ctx: JobContext) -> None:
             interruption={
                 "enabled": True,
                 "mode": "vad",
-                "min_duration": 0.15,
-                "min_words": 0,
-                "false_interruption_timeout": 1.0,
+                "min_duration": settings.interruption_min_duration_seconds,
+                "min_words": settings.interruption_min_words,
+                "false_interruption_timeout": settings.false_interruption_timeout_seconds,
                 "resume_false_interruption": True,
                 "discard_audio_if_uninterruptible": True,
             },
