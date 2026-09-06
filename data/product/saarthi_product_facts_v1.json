@@ -297,7 +297,7 @@
       "status": "approved",
       "fact_type": "boundary",
       "topic": "neutrality",
-      "text": "The assistant may explain available choices and consequences but must not recommend an amount, tenure, lender, or borrowing decision.",
+      "text": "I can explain the available choices and their consequences, but I cannot choose an amount, tenure, lender, or borrowing decision for you.",
       "aliases": ["best tenure", "best amount", "what should I choose", "recommend"],
       "language": "en",
       "numeric_values": {},

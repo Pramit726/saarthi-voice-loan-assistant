@@ -128,6 +128,16 @@ async def entrypoint(ctx: JobContext) -> None:
             "self-employed",
             "one lakh",
             "eighty thousand",
+            # Single-word controls are easy to lose in noisy audio. Keep
+            # them in the recognizer vocabulary so they reach the
+            # deterministic control path instead of the LLM interpreter.
+            "stop",
+            "pause",
+            "resume",
+            "repeat",
+            "go back",
+            "show summary",
+            "cancel",
         ],
     )
     tts = rime.TTS(

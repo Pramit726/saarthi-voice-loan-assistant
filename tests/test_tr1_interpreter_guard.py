@@ -1,3 +1,4 @@
+from saarthi.domain.contracts import TurnProposal
 from saarthi.domain.enums import FieldId, TurnAct, TurnRoute
 from saarthi.providers.groq import InterpretationPayload
 from saarthi.services.interpreter import RetrievedFewShotInterpreter
@@ -109,3 +110,31 @@ def test_control_is_resolved_without_llm(transcript_factory):
     assert result is not None
     assert result.route is TurnRoute.CONTROL
     assert result.explicit_write is False
+
+
+def test_voice_control_variants_are_resolved_without_llm(transcript_factory):
+    for text in ("stop", "pause", "repeat that", "go back", "show my draft"):
+        result = RetrievedFewShotInterpreter._direct_control(transcript_factory(text))
+        assert result is not None
+        assert result.route is TurnRoute.CONTROL
+        assert result.explicit_write is False
+
+
+async def test_cancel_that_rejects_pending_change_instead_of_cancelling_draft(
+    transcript_factory, conversation
+):
+    conversation.pending_write_confirmation = TurnProposal(
+        source_transcript_id="turn-old",
+        acts=[TurnAct.CORRECTION],
+        route=TurnRoute.CORRECTION,
+        target_field=FieldId.PREFERRED_TENURE,
+        candidate_value=6,
+        source_span="six months",
+        rationale_code="pending_correction",
+        explicit_write=True,
+    )
+    result = await RetrievedFewShotInterpreter(
+        client=None  # type: ignore[arg-type]
+    ).interpret(transcript_factory("cancel that"), conversation)
+    assert result.rationale_code == "discard_pending_write"
+    assert result.route is TurnRoute.FALLBACK

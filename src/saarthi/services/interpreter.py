@@ -12,28 +12,36 @@ from saarthi.providers.groq import GroqStructuredClient, InterpretationPayload
 CONTROL_PATTERNS: tuple[tuple[ControlCommand, re.Pattern[str]], ...] = (
     (
         ControlCommand.CANCEL,
-        re.compile(r"\b(cancel|end the application|delete the draft)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(cancel(?: the application| this application)?|end(?: the application)?|delete the draft|exit)\b",
+            re.IGNORECASE,
+        ),
     ),
     (
         ControlCommand.STOP,
-        re.compile(r"\b(stop|stop speaking|be quiet)\b", re.IGNORECASE),
+        re.compile(r"\b(stop(?: speaking)?|be quiet|quiet)\b", re.IGNORECASE),
     ),
-    (ControlCommand.PAUSE, re.compile(r"\b(pause|hold on|wait)\b", re.IGNORECASE)),
+    (
+        ControlCommand.PAUSE,
+        re.compile(r"\b(pause|hold on|wait|not now)\b", re.IGNORECASE),
+    ),
     (
         ControlCommand.RESUME,
-        re.compile(r"\b(resume|continue|carry on)\b", re.IGNORECASE),
+        re.compile(r"\b(resume|continue|carry on|go on|let's continue)\b", re.IGNORECASE),
     ),
     (
         ControlCommand.REPEAT,
-        re.compile(r"\b(repeat|say that again|once more)\b", re.IGNORECASE),
+        re.compile(r"\b(repeat(?: that)?|say that again|once more)\b", re.IGNORECASE),
     ),
     (
         ControlCommand.GO_BACK,
-        re.compile(r"\b(go back|previous question|previous field)\b", re.IGNORECASE),
+        re.compile(r"\b(go back|previous question|previous field|back)\b", re.IGNORECASE),
     ),
     (
         ControlCommand.SHOW_SUMMARY,
-        re.compile(r"\b(show|read) (my )?(summary|draft)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(show|read|give me) (my )?(summary|draft)\b", re.IGNORECASE
+        ),
     ),
 )
 
@@ -157,12 +165,15 @@ class RetrievedFewShotInterpreter:
     async def interpret(
         self, transcript: FinalTranscript, state: ConversationState
     ) -> TurnProposal:
-        direct_control = self._direct_control(transcript)
-        if direct_control:
-            return direct_control
+        # A pending confirmation has priority over a global command. In
+        # particular, "cancel that" must reject a proposed field change; it
+        # must not cancel the complete draft.
         confirmation = self._pending_confirmation(transcript, state)
         if confirmation:
             return confirmation
+        direct_control = self._direct_control(transcript)
+        if direct_control:
+            return direct_control
 
         ranked = sorted(
             EXAMPLES,
