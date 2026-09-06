@@ -103,6 +103,7 @@ class TurnOrchestrator:
                 "target_field": proposal.target_field.value
                 if proposal.target_field
                 else None,
+                "control": proposal.control.value if proposal.control else None,
                 "explicit_write": proposal.explicit_write,
                 "rationale_code": proposal.rationale_code,
             },

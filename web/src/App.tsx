@@ -72,12 +72,20 @@ function BorrowerView() {
 
   const control = async (command: string) => {
     if (!session) return;
-    if (command === "stop" || command === "pause" || command === "cancel") {
+    if (command === "stop") {
       room?.remoteParticipants.forEach((participant) =>
         participant.audioTrackPublications.forEach((publication) => publication.audioTrack?.detach().forEach((node) => node.remove())),
       );
     }
-    await sendControl(session.session_id, command);
+    if (room) {
+      const packet = JSON.stringify({ type: "control", session_id: session.session_id, command });
+      await room.localParticipant.publishData(new TextEncoder().encode(packet), {
+        reliable: true,
+        topic: "saarthi-control",
+      });
+    } else {
+      await sendControl(session.session_id, command);
+    }
     setStatus(command === "cancel" ? "Draft cancelled - nothing submitted" : `${command.replace("_", " ")} requested`);
   };
 

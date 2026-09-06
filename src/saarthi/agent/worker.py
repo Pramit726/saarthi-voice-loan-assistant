@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import AsyncIterable
 from contextlib import suppress
@@ -8,6 +9,7 @@ from datetime import timedelta
 from typing import Any
 
 from dotenv import load_dotenv
+from livekit import rtc
 from livekit.agents import (
     Agent,
     AgentServer,
@@ -27,6 +29,16 @@ logger = logging.getLogger("saarthi.voice")
 load_dotenv()
 settings = get_settings()
 server = AgentServer()
+CONTROL_TOPIC = "saarthi-control"
+CONTROL_COMMANDS = {
+    "stop",
+    "pause",
+    "resume",
+    "repeat",
+    "go back",
+    "show summary",
+    "cancel",
+}
 
 
 class ActiveGeneration:
@@ -221,6 +233,30 @@ async def entrypoint(ctx: JobContext) -> None:
             )
         finally:
             active.speech = None
+
+    def queue_control(command: str) -> None:
+        """Run browser controls through the same guarded path as voice controls."""
+
+        if command not in CONTROL_COMMANDS:
+            logger.warning("ignoring unsupported control command: %s", command)
+            return
+        active.interrupt()
+        task = asyncio.create_task(process_final_turn(command))
+        active.task = task
+
+    @ctx.room.on("data_received")
+    def on_data_received(packet: rtc.DataPacket) -> None:
+        if packet.topic != CONTROL_TOPIC:
+            return
+        try:
+            payload = json.loads(packet.data.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            logger.warning("ignoring malformed control packet")
+            return
+        if payload.get("type") != "control" or payload.get("session_id") != session_id:
+            return
+        command = str(payload.get("command", "")).strip().replace("_", " ")
+        queue_control(command)
 
     @voice_session.on("user_input_transcribed")
     def on_user_input_transcribed(event) -> None:
