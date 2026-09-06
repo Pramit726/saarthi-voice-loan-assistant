@@ -6,6 +6,7 @@ from contextlib import suppress
 from datetime import timedelta
 from typing import Any, AsyncIterable
 
+from dotenv import load_dotenv
 from livekit.agents import Agent, AgentServer, AgentSession, JobContext, TurnHandlingOptions, cli
 from livekit.plugins import deepgram, rime
 
@@ -16,6 +17,7 @@ from saarthi.runtime import build_runtime
 
 
 logger = logging.getLogger("saarthi.voice")
+load_dotenv()
 settings = get_settings()
 server = AgentServer()
 
