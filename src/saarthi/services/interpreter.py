@@ -27,7 +27,9 @@ CONTROL_PATTERNS: tuple[tuple[ControlCommand, re.Pattern[str]], ...] = (
     ),
     (
         ControlCommand.RESUME,
-        re.compile(r"\b(resume|continue|carry on|go on|let's continue)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(resume|continue|carry on|go on|let's continue)\b", re.IGNORECASE
+        ),
     ),
     (
         ControlCommand.REPEAT,
@@ -35,13 +37,13 @@ CONTROL_PATTERNS: tuple[tuple[ControlCommand, re.Pattern[str]], ...] = (
     ),
     (
         ControlCommand.GO_BACK,
-        re.compile(r"\b(go back|previous question|previous field|back)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(go back|previous question|previous field|back)\b", re.IGNORECASE
+        ),
     ),
     (
         ControlCommand.SHOW_SUMMARY,
-        re.compile(
-            r"\b(show|read|give me) (my )?(summary|draft)\b", re.IGNORECASE
-        ),
+        re.compile(r"\b(show|read|give me) (my )?(summary|draft)\b", re.IGNORECASE),
     ),
 )
 
@@ -59,6 +61,16 @@ HEDGED_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bmore or less\b", re.IGNORECASE),
 )
 
+CALCULATION_VALUE_PATTERN = re.compile(
+    r"\b(emi|monthly instal+ment|total interest|total repayment|net (?:amount|disbursal)|"
+    r"amount (?:will|would) (?:i )?(?:receive|get)|reach my account)\b",
+    re.IGNORECASE,
+)
+CALCULATION_CUE_PATTERN = re.compile(
+    r"\b(what|how much|calculate|if i|would|will|change|choose|compare)\b",
+    re.IGNORECASE,
+)
+
 
 def control_command_for_text(text: str) -> ControlCommand | None:
     """Resolve a short spoken control without involving the LLM."""
@@ -68,6 +80,14 @@ def control_command_for_text(text: str) -> ControlCommand | None:
         if pattern.search(normalized):
             return command
     return None
+
+
+def is_calculation_request(text: str) -> bool:
+    """Recognize common deterministic projection requests before the LLM."""
+
+    return bool(
+        CALCULATION_VALUE_PATTERN.search(text) and CALCULATION_CUE_PATTERN.search(text)
+    )
 
 
 @dataclass(frozen=True)
@@ -198,6 +218,9 @@ class RetrievedFewShotInterpreter:
         direct_control = self._direct_control(transcript)
         if direct_control:
             return direct_control
+        direct_calculation = self._direct_calculation(transcript)
+        if direct_calculation:
+            return direct_calculation
 
         ranked = sorted(
             EXAMPLES,
@@ -255,15 +278,32 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
         return None
 
     @staticmethod
+    def _direct_calculation(transcript: FinalTranscript) -> TurnProposal | None:
+        if (
+            transcript.confidence is not None
+            and transcript.confidence < 0.70
+            or not is_calculation_request(transcript.text)
+        ):
+            return None
+        return TurnProposal(
+            source_transcript_id=transcript.transcript_id,
+            acts=[TurnAct.DOUBT],
+            route=TurnRoute.CALCULATION,
+            uncertainty=0,
+            rationale_code="deterministic_calculation_match",
+            explicit_write=False,
+        )
+
+    @staticmethod
     def _pending_confirmation(
         transcript: FinalTranscript, state: ConversationState
     ) -> TurnProposal | None:
         pending = state.pending_write_confirmation
         if pending is None:
             return None
-        text = transcript.text.casefold().strip()
+        text = " ".join(re.sub(r"[,.!?]+", " ", transcript.text.casefold()).split())
         if re.fullmatch(
-            r"(?:yes|yes please|confirm|correct|haan|hanji|yeah|yep|okay|ok|sure|do it|change it|update it)(?: please| now| go ahead)?[.! ]*",
+            r"(?:yes|yes please|confirm|correct|haan|hanji|yeah|yep|okay|ok|sure|do it|change it|update it)(?: please| now| go ahead)?",
             text,
         ):
             return TurnProposal(
@@ -283,7 +323,7 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
                 explicit_write=True,
             )
         if re.fullmatch(
-            r"(?:no|no thanks|do not|don't|cancel that|keep it|leave it|don't change it|nahi)[.! ]*",
+            r"(?:no|no thanks|do not|don't|cancel that|keep it|leave it|don't change it|nahi)",
             text,
         ):
             return TurnProposal(
@@ -351,7 +391,8 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
             reference_resolution=payload.reference_resolution,
             control=control,
             uncertainty=max(
-                payload.uncertainty, 0.7 if confidence_uncertain or hedged_value else 0.0
+                payload.uncertainty,
+                0.7 if confidence_uncertain or hedged_value else 0.0,
             ),
             rationale_code=(
                 "low_stt_confidence"

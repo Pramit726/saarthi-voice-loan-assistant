@@ -166,6 +166,26 @@ async def entrypoint(ctx: JobContext) -> None:
         min_consecutive_speech_delay=0.0,
     )
     active = ActiveGeneration()
+    user_idle = asyncio.Event()
+    user_idle.set()
+
+    async def wait_until_user_idle() -> None:
+        try:
+            await asyncio.wait_for(
+                user_idle.wait(),
+                timeout=settings.response_user_idle_timeout_seconds,
+            )
+        except TimeoutError:
+            # Do not deadlock the conversation if a provider misses a user
+            # state transition. The generation fence still protects output.
+            logger.warning("timed out waiting for user listening state")
+
+    @voice_session.on("user_state_changed")
+    def on_user_state_changed(event) -> None:
+        if getattr(event, "new_state", None) == "speaking":
+            user_idle.clear()
+        else:
+            user_idle.set()
 
     async def process_final_turn(text: str) -> None:
         local_generation = await active.begin()
@@ -207,13 +227,18 @@ async def entrypoint(ctx: JobContext) -> None:
         # controls such as "repeat" can interrupt the replay they just
         # requested.
         await asyncio.sleep(settings.post_transcript_settle_delay_seconds)
+        await wait_until_user_idle()
         if not active.is_current(local_generation):
             return
 
-        handle = voice_session.say(response_stream(), allow_interruptions=True)
-        active.speech = handle
-        try:
-            await handle
+        attempt = 0
+        while active.is_current(local_generation):
+            handle = voice_session.say(response_stream(), allow_interruptions=True)
+            active.speech = handle
+            try:
+                await handle
+            finally:
+                active.speech = None
             interrupted = bool(getattr(handle, "interrupted", False))
             current = await runtime.repository.get_state(session_id)
             if current is None:
@@ -252,8 +277,43 @@ async def entrypoint(ctx: JobContext) -> None:
                     payload={"response_id": outcome.response_plan.response_id},
                 )
             )
-        finally:
-            active.speech = None
+            if not interrupted:
+                return
+            if attempt >= settings.interrupted_response_max_retries:
+                return
+
+            # A real barge-in produces another finalized turn, whose call to
+            # ActiveGeneration.begin invalidates this sequence. If no final
+            # turn arrives, treat the interruption as false/untranscribed and
+            # replay once so the conversation does not end in silence.
+            await asyncio.sleep(settings.interrupted_response_recovery_delay_seconds)
+            await wait_until_user_idle()
+            refreshed = await runtime.repository.get_state(session_id)
+            if (
+                not active.is_current(local_generation)
+                or refreshed is None
+                or refreshed.generation_id != outcome.state.generation_id
+            ):
+                return
+            attempt += 1
+            await runtime.repository.append_event(
+                TraceEvent(
+                    event_type="speech_recovery_started",
+                    session_id=refreshed.session_id,
+                    application_id=refreshed.application_id,
+                    trace_id=refreshed.trace_id,
+                    component="livekit_voice_worker",
+                    outcome="retrying",
+                    turn_id=refreshed.current_turn_id,
+                    generation_id=refreshed.generation_id,
+                    application_revision=refreshed.linked_application_revision,
+                    state_version=refreshed.state_version,
+                    payload={
+                        "response_id": outcome.response_plan.response_id,
+                        "attempt": attempt,
+                    },
+                )
+            )
 
     def queue_control(command: str) -> None:
         """Run browser controls through the same guarded path as voice controls."""

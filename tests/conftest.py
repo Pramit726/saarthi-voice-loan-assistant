@@ -109,7 +109,7 @@ def build_test_orchestrator(
     )
     grounding = GroundedAnswerService(
         LocalKnowledgeProvider(facts),
-        calculator=FinancialCalculator(),
+        calculator=FinancialCalculator.from_product_facts(facts),
         writer=None,
     )
     return TurnOrchestrator(

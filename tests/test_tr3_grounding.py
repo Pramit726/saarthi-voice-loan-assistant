@@ -11,7 +11,8 @@ def service() -> GroundedAnswerService:
         REPOSITORY_ROOT / "data" / "product" / "saarthi_product_facts_v1.json"
     )
     return GroundedAnswerService(
-        LocalKnowledgeProvider(facts), calculator=FinancialCalculator()
+        LocalKnowledgeProvider(facts),
+        calculator=FinancialCalculator.from_product_facts(facts),
     )
 
 

@@ -8,6 +8,7 @@ from saarthi.domain.enums import (
     TurnRoute,
 )
 from saarthi.domain.state import ConversationStateMachine
+from saarthi.services.planner import ResponsePlanner
 
 
 def test_stop_cancels_active_work_and_queued_audio(conversation):
@@ -67,3 +68,13 @@ def test_go_back_changes_navigation_not_application_revision(conversation):
     )
     assert changed.pending_field is FieldId.LOAN_PURPOSE
     assert changed.linked_application_revision == 2
+    assert changed.last_safe_prompt == "What is the purpose of the loan?"
+
+
+def test_resume_and_go_back_controls_speak_the_restored_question():
+    planner = ResponsePlanner()
+    prompt = "Are you salaried or self-employed?"
+    for command in (ControlCommand.RESUME, ControlCommand.GO_BACK):
+        plan = planner.for_control(command, resume_prompt=prompt)
+        assert plan.message_segments[-1] == prompt
+        assert plan.resume_instruction == prompt

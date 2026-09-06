@@ -84,7 +84,11 @@ class ResponsePlanner:
         )
 
     def for_control(
-        self, command: ControlCommand, *, repeat_text: list[str] | None = None
+        self,
+        command: ControlCommand,
+        *,
+        repeat_text: list[str] | None = None,
+        resume_prompt: str | None = None,
     ) -> ResponsePlan:
         messages = {
             ControlCommand.STOP: [],
@@ -94,10 +98,12 @@ class ResponsePlanner:
             ControlCommand.PAUSE: [
                 "Paused. Your confirmed draft information is preserved."
             ],
-            ControlCommand.RESUME: ["We can continue from the saved question."],
+            ControlCommand.RESUME: ["We can continue from the saved question."]
+            + ([resume_prompt] if resume_prompt else []),
             ControlCommand.REPEAT: repeat_text
             or ["There is no fully heard response to repeat yet."],
-            ControlCommand.GO_BACK: ["Going back one question."],
+            ControlCommand.GO_BACK: ["Going back one question."]
+            + ([resume_prompt] if resume_prompt else []),
             ControlCommand.SHOW_SUMMARY: [
                 "I will show the current draft. It has not been submitted."
             ],
@@ -106,6 +112,11 @@ class ResponsePlanner:
             purpose=f"control_{command.value}",
             message_segments=messages[command],
             allowed_action=AllowedAction.SESSION_CONTROL,
+            resume_instruction=(
+                resume_prompt
+                if command in {ControlCommand.RESUME, ControlCommand.GO_BACK}
+                else None
+            ),
         )
         return self.guard.evaluate(plan)
 
@@ -135,6 +146,33 @@ class ResponsePlanner:
             purpose="clarify_hedged_value",
             message_segments=[
                 f"I understood your {field_label} as {rendered_value}. Should I record that?"
+            ],
+        )
+        return self.guard.evaluate(plan)
+
+    def for_correction_confirmation(
+        self, proposal: TurnProposal, *, current_value: object | None
+    ) -> ResponsePlan:
+        field_label = proposal.target_field.value.replace("_", " ")
+
+        def value_text(value: object | None) -> str:
+            if value is None:
+                return "not answered"
+            if proposal.target_field in {
+                FieldId.REQUESTED_AMOUNT,
+                FieldId.MONTHLY_INCOME,
+                FieldId.EXISTING_REPAYMENTS,
+            }:
+                return f"Rs. {Decimal(str(value)):,.2f}"
+            if proposal.target_field is FieldId.PREFERRED_TENURE:
+                return f"{value} months"
+            return str(value)
+
+        plan = ResponsePlan(
+            purpose="confirm_correction",
+            message_segments=[
+                f"The current {field_label} is {value_text(current_value)}.",
+                f"Should I change it to {value_text(proposal.candidate_value)}? Please say yes or no.",
             ],
         )
         return self.guard.evaluate(plan)

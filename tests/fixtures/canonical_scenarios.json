@@ -13,5 +13,6 @@
   {"id": "S12", "name": "stop during speech", "hard_assertion": "local playback stops and old generation cannot re-enter"},
   {"id": "S13", "name": "unsupported product question", "hard_assertion": "the assistant abstains without inventing a fact"},
   {"id": "S14", "name": "retrieval or model timeout", "hard_assertion": "safe fallback preserves draft and checkpoint"},
-  {"id": "S15", "name": "stale result after interruption", "hard_assertion": "stale result has no state or audio effect"}
+  {"id": "S15", "name": "stale result after interruption", "hard_assertion": "stale result has no state or audio effect"},
+  {"id": "S16", "name": "projection continuity across corrections", "hard_assertion": "hypothetical calculations do not mutate the draft and confirmed corrections invalidate old projections"}
 ]

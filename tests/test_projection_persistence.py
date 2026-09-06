@@ -1,5 +1,7 @@
+from saarthi.config import REPOSITORY_ROOT
 from saarthi.domain.contracts import CommittedFieldValue
 from saarthi.domain.enums import ChangeKind, FieldId
+from saarthi.providers.knowledge import load_product_facts
 from saarthi.services.calculator import FinancialCalculator
 from saarthi.storage.repository import InMemoryStateRepository
 
@@ -32,7 +34,10 @@ async def test_projection_can_attach_only_to_its_source_revision(
     }
     repository = InMemoryStateRepository()
     await repository.create(application, conversation)
-    projection = FinancialCalculator().calculate(application)
+    facts = load_product_facts(
+        REPOSITORY_ROOT / "data" / "product" / "saarthi_product_facts_v1.json"
+    )
+    projection = FinancialCalculator.from_product_facts(facts).calculate(application)
     stored = await repository.attach_projection(
         application.application_id, 2, projection
     )

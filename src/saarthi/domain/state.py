@@ -158,6 +158,9 @@ class ConversationStateMachine:
             if current_index > 0:
                 updated.pending_field = FIELD_ORDER[current_index - 1]
                 updated.phase = ConversationPhase.COLLECTION
+                updated.last_safe_prompt = FIELD_DEFINITIONS[
+                    updated.pending_field
+                ].prompt
         elif command is ControlCommand.SHOW_SUMMARY:
             updated.phase = ConversationPhase.REVIEW
         # Repeat deliberately keeps the same workflow position.

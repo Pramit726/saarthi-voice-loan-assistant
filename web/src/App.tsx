@@ -200,6 +200,7 @@ const EVENT_TITLES: Record<string, string> = {
   response_blocked: "Response blocked by guard",
   speech_delivered: "Speech delivered",
   speech_interrupted: "Speech interrupted",
+  speech_recovery_started: "Speech recovery started",
 };
 
 function eventTitle(event: EvidenceEvent) {
@@ -223,7 +224,8 @@ function eventDetail(event: EvidenceEvent) {
     return `${segmentCount} spoken segment${segmentCount === 1 ? "" : "s"} released after guard evaluation.`;
   }
   if (event.event_type === "response_blocked") return "The response guard stopped this output from being spoken.";
-  if (event.event_type === "speech_interrupted") return "Playback was stopped so the next user turn could take priority.";
+  if (event.event_type === "speech_interrupted") return "Playback stopped after detected user speech. A finalized new turn cancels it; otherwise recovery may retry once.";
+  if (event.event_type === "speech_recovery_started") return "No finalized user turn followed the interruption, so the current safe response is being replayed once.";
   if (event.event_type === "speech_delivered") return "The generated response completed playback.";
   if (event.event_type === "final_transcript_accepted") return "A final speech-recognition result entered the guarded backend.";
   if (event.event_type === "session_created") return "A new draft-only application and conversation state were created.";
@@ -232,7 +234,7 @@ function eventDetail(event: EvidenceEvent) {
 
 function eventTone(event: EvidenceEvent) {
   if (/blocked|failed|rejected|stale/.test(event.outcome) || event.event_type === "response_blocked") return "failure";
-  if (event.event_type === "speech_interrupted" || /interrupt/.test(event.event_type)) return "warning";
+  if (event.event_type === "speech_interrupted" || /interrupt|recovery/.test(event.event_type)) return "warning";
   if (event.event_type === "grounding_decided" || event.event_type === "application_patch_decided") return "decision";
   return "normal";
 }
@@ -258,6 +260,7 @@ function Dashboard({ sessionId }: { sessionId: string }) {
   const safetyData = [
     { label: "Grounded answers", value: grounded.length },
     { label: "Interruptions", value: events.filter((event) => event.event_type === "speech_interrupted").length },
+    { label: "Automatic recoveries", value: events.filter((event) => event.event_type === "speech_recovery_started").length },
     { label: "Blocked responses", value: events.filter((event) => event.event_type === "response_blocked").length },
     { label: "Stale work blocked", value: events.filter((event) => /stale/.test(event.event_type)).length },
   ];

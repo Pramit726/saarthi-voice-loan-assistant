@@ -4,6 +4,7 @@ from saarthi.providers.groq import InterpretationPayload
 from saarthi.services.interpreter import (
     RetrievedFewShotInterpreter,
     control_command_for_text,
+    is_calculation_request,
 )
 
 
@@ -149,6 +150,21 @@ def test_control_text_normalization_handles_voice_spacing():
     assert control_command_for_text("Show my draft").value == "show_summary"
 
 
+def test_projection_questions_are_routed_deterministically():
+    assert is_calculation_request("If I choose twelve months, what would the EMI be?")
+    assert is_calculation_request("How much would reach my account?")
+    assert not is_calculation_request("Is the processing fee included in EMI?")
+
+
+def test_low_confidence_projection_question_is_not_directly_accepted(
+    transcript_factory,
+):
+    result = RetrievedFewShotInterpreter._direct_calculation(
+        transcript_factory("What would my EMI be?", confidence=0.42)
+    )
+    assert result is None
+
+
 async def test_cancel_that_rejects_pending_change_instead_of_cancelling_draft(
     transcript_factory, conversation
 ):
@@ -167,3 +183,23 @@ async def test_cancel_that_rejects_pending_change_instead_of_cancelling_draft(
     ).interpret(transcript_factory("cancel that"), conversation)
     assert result.rationale_code == "discard_pending_write"
     assert result.route is TurnRoute.FALLBACK
+
+
+async def test_spoken_punctuation_does_not_break_pending_confirmation(
+    transcript_factory, conversation
+):
+    conversation.pending_write_confirmation = TurnProposal(
+        source_transcript_id="turn-old",
+        acts=[TurnAct.CORRECTION],
+        route=TurnRoute.CORRECTION,
+        target_field=FieldId.REQUESTED_AMOUNT,
+        candidate_value=80000,
+        source_span="eighty thousand",
+        rationale_code="pending_correction",
+        explicit_write=True,
+    )
+    result = await RetrievedFewShotInterpreter(
+        client=None  # type: ignore[arg-type]
+    ).interpret(transcript_factory("Yes, go ahead."), conversation)
+    assert result.rationale_code == "confirmed_pending_write"
+    assert result.candidate_value == 80000

@@ -62,7 +62,7 @@ def build_runtime(settings: Settings) -> Runtime:
         temperature=settings.groq_temperature,
     )
     repository = SqliteStateRepository(settings.database_url)
-    calculator = FinancialCalculator()
+    calculator = FinancialCalculator.from_product_facts(facts)
     renderer = ListenerRenderer()
     planner = ResponsePlanner()
     grounding = GroundedAnswerService(

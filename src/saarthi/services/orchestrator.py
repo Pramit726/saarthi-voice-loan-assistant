@@ -13,6 +13,8 @@ from saarthi.domain.contracts import (
 from saarthi.domain.enums import (
     ChangeKind,
     ControlCommand,
+    FieldId,
+    SessionStatus,
     TurnAct,
     TurnRoute,
 )
@@ -128,8 +130,19 @@ class TurnOrchestrator:
                 plan = self.planner.guard.evaluate(plan, financial_response=True)
             else:
                 plan = self.planner.for_control(
-                    proposal.control, repeat_text=repeat_text
+                    proposal.control,
+                    repeat_text=repeat_text,
+                    resume_prompt=state.last_safe_prompt,
                 )
+
+        elif state.status is SessionStatus.PAUSED:
+            plan = ResponsePlan(
+                purpose="session_paused",
+                message_segments=[
+                    "The draft is paused. Say resume when you want to continue."
+                ],
+            )
+            plan = self.planner.guard.evaluate(plan)
 
         elif (
             proposal.route is TurnRoute.CLARIFICATION
@@ -170,20 +183,20 @@ class TurnOrchestrator:
                 if proposal.target_field
                 else None
             )
-            current_text = str(current.typed_value) if current else "not answered"
-            plan = ResponsePlan(
-                purpose="confirm_correction",
-                message_segments=[
-                    f"The current {proposal.target_field.value.replace('_', ' ')} is {current_text}.",
-                    f"Should I change it to {proposal.candidate_value}? Please say yes or no.",
-                ],
+            plan = self.planner.for_correction_confirmation(
+                proposal,
+                current_value=current.typed_value if current else None,
             )
-            plan = self.planner.guard.evaluate(plan)
 
         elif (
             proposal.route in {TurnRoute.FIELD_ANSWER, TurnRoute.CORRECTION}
             and proposal.explicit_write
         ):
+            prior_projection_id = (
+                draft.current_projection.projection_id
+                if draft.current_projection is not None
+                else None
+            )
             is_correction = (
                 TurnAct.CORRECTION in proposal.acts
                 or proposal.target_field in draft.fields
@@ -212,10 +225,11 @@ class TurnOrchestrator:
             )
             if commit_result.accepted and commit_result.draft:
                 draft = commit_result.draft
+                refreshed_projection = None
                 try:
-                    projection = self.grounding.calculator.calculate(draft)
+                    refreshed_projection = self.grounding.calculator.calculate(draft)
                     draft = await self.repository.attach_projection(
-                        draft.application_id, draft.revision, projection
+                        draft.application_id, draft.revision, refreshed_projection
                     )
                 except ProjectionUnavailable:
                     pass
@@ -223,6 +237,33 @@ class TurnOrchestrator:
                     state, set(draft.fields), draft.revision
                 )
                 await self.repository.save_state(state)
+                if prior_projection_id and commit_result.changed_field in {
+                    FieldId.REQUESTED_AMOUNT,
+                    FieldId.PREFERRED_TENURE,
+                }:
+                    await self._trace(
+                        state,
+                        "projection_invalidated",
+                        "deterministic_calculator",
+                        "invalidated",
+                        {
+                            "projection_id": prior_projection_id,
+                            "changed_field": commit_result.changed_field.value,
+                        },
+                    )
+                if refreshed_projection is not None:
+                    await self._trace(
+                        state,
+                        "projection_refreshed",
+                        "deterministic_calculator",
+                        "calculated",
+                        {
+                            "projection_id": refreshed_projection.projection_id,
+                            "source_application_revision": refreshed_projection.source_application_revision,
+                            "fact_set_version": refreshed_projection.fact_set_version,
+                            "calculator_version": refreshed_projection.calculator_version,
+                        },
+                    )
             plan = self.planner.for_commit(
                 commit_result, next_field=state.pending_field
             )
@@ -252,37 +293,80 @@ class TurnOrchestrator:
                 and proposal.target_field is not None
             ):
                 state = self.state_machine.hold_for_confirmation(state, proposal)
-            grounded_answer = await self.grounding.answer(
-                transcript.text,
-                route=proposal.route,
-                draft=draft,
-            )
-            resume = (
-                "Should I record your proposed answer? Please say yes or no."
-                if state.pending_write_confirmation
-                else (
-                    state.resume_checkpoint.resume_prompt
-                    if state.resume_checkpoint
-                    else None
+            try:
+                grounded_answer = await self.grounding.answer(
+                    transcript.text,
+                    route=proposal.route,
+                    draft=draft,
                 )
-            )
-            plan = self.planner.for_grounded_answer(
-                grounded_answer, resume_prompt=resume
-            )
-            if not state.pending_write_confirmation:
+            except Exception as exc:  # noqa: BLE001 - fail closed at provider boundary
+                state.failure_component = "grounding"
+                state.failure_reason = type(exc).__name__
                 state = self.state_machine.restore_checkpoint(state, draft.revision)
-            await self.repository.save_state(state)
-            await self._trace(
-                state,
-                "grounding_decided",
-                "tr3_answer_service",
-                grounded_answer.support_status.value,
-                {
-                    "fact_ids": grounded_answer.supporting_fact_ids,
-                    "calculation_ids": grounded_answer.calculation_ids,
-                    "abstention_reason": grounded_answer.abstention_reason,
-                },
-            )
+                await self.repository.save_state(state)
+                plan = self.planner.safe_fallback("provider_failure")
+                await self._trace(
+                    state,
+                    "grounding_failed",
+                    "tr3_answer_service",
+                    "failed_closed",
+                    {"error_type": type(exc).__name__},
+                )
+            else:
+                latest = await self.repository.get_state(state.session_id)
+                if (
+                    latest is None
+                    or latest.generation_id != state.generation_id
+                    or latest.current_turn_id != transcript.turn_id
+                ):
+                    if latest is not None:
+                        await self._trace(
+                            latest,
+                            "stale_result_blocked",
+                            "tr3_answer_service",
+                            "stale",
+                            {
+                                "stale_turn_id": transcript.turn_id,
+                                "stale_generation_id": state.generation_id,
+                            },
+                        )
+                    empty_plan = ResponsePlan(
+                        purpose="stale_result_discarded", message_segments=[]
+                    )
+                    return TurnOutcome(
+                        state=latest or state,
+                        draft=draft,
+                        proposal=proposal,
+                        grounded_answer=grounded_answer,
+                        response_plan=empty_plan,
+                        speech_segments=[],
+                    )
+                resume = (
+                    "Should I record your proposed answer? Please say yes or no."
+                    if state.pending_write_confirmation
+                    else (
+                        state.resume_checkpoint.resume_prompt
+                        if state.resume_checkpoint
+                        else None
+                    )
+                )
+                plan = self.planner.for_grounded_answer(
+                    grounded_answer, resume_prompt=resume
+                )
+                if not state.pending_write_confirmation:
+                    state = self.state_machine.restore_checkpoint(state, draft.revision)
+                await self.repository.save_state(state)
+                await self._trace(
+                    state,
+                    "grounding_decided",
+                    "tr3_answer_service",
+                    grounded_answer.support_status.value,
+                    {
+                        "fact_ids": grounded_answer.supporting_fact_ids,
+                        "calculation_ids": grounded_answer.calculation_ids,
+                        "abstention_reason": grounded_answer.abstention_reason,
+                    },
+                )
 
         elif (
             proposal.rationale_code in {"affirmation", "non_specific_confirmation"}

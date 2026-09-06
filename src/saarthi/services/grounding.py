@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from decimal import Decimal
 
 from saarthi.domain.contracts import (
     ApplicationDraft,
@@ -11,6 +13,66 @@ from saarthi.domain.enums import SupportStatus, TurnRoute
 from saarthi.providers.groq import GroqStructuredClient
 from saarthi.providers.knowledge import KnowledgeProvider
 from saarthi.services.calculator import FinancialCalculator, ProjectionUnavailable
+
+NUMBER_WORDS = {
+    "one": Decimal(1),
+    "two": Decimal(2),
+    "three": Decimal(3),
+    "four": Decimal(4),
+    "five": Decimal(5),
+    "six": Decimal(6),
+    "seven": Decimal(7),
+    "eight": Decimal(8),
+    "nine": Decimal(9),
+    "ten": Decimal(10),
+    "twenty": Decimal(20),
+    "thirty": Decimal(30),
+    "forty": Decimal(40),
+    "fifty": Decimal(50),
+    "sixty": Decimal(60),
+    "seventy": Decimal(70),
+    "eighty": Decimal(80),
+    "ninety": Decimal(90),
+}
+TENURE_WORDS = {
+    "six": 6,
+    "twelve": 12,
+    "eighteen": 18,
+    "twenty four": 24,
+    "twenty-four": 24,
+}
+
+
+def _calculation_overrides(question: str) -> tuple[Decimal | None, int | None]:
+    """Extract only explicit, bounded hypothetical inputs from a question."""
+
+    lowered = question.casefold().replace(",", "")
+    amount: Decimal | None = None
+    amount_match = re.search(
+        r"\b(\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|"
+        r"twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\s+"
+        r"(lakh|lac|thousand)\b",
+        lowered,
+    )
+    if amount_match:
+        raw = amount_match.group(1)
+        base = Decimal(raw) if raw[0].isdigit() else NUMBER_WORDS[raw]
+        scale = (
+            Decimal(100000)
+            if amount_match.group(2) in {"lakh", "lac"}
+            else Decimal(1000)
+        )
+        amount = base * scale
+
+    tenure: int | None = None
+    tenure_match = re.search(
+        r"\b(6|12|18|24|six|twelve|eighteen|twenty[ -]four)\s+months?\b",
+        lowered,
+    )
+    if tenure_match:
+        raw_tenure = tenure_match.group(1)
+        tenure = int(raw_tenure) if raw_tenure.isdigit() else TENURE_WORDS[raw_tenure]
+    return amount, tenure
 
 
 class GroundedAnswerService:
@@ -104,8 +166,13 @@ If the evidence does not answer the question, return no segments and no IDs."""
     def _calculation_answer(
         self, question: str, draft: ApplicationDraft
     ) -> GroundedAnswer:
+        amount_override, tenure_override = _calculation_overrides(question)
         try:
-            projection = self.calculator.calculate(draft)
+            projection = self.calculator.calculate_hypothetical(
+                draft,
+                requested_amount=amount_override,
+                tenure_months=tenure_override,
+            )
         except ProjectionUnavailable as exc:
             return GroundedAnswer(
                 product_id=draft.product_id,
@@ -119,7 +186,53 @@ If the evidence does not answer the question, return no segments and no IDs."""
 
         calculation_id = projection.projection_id
         lowered = question.casefold()
-        if (
+        comparison = None
+        if (amount_override is not None or tenure_override is not None) and (
+            "change" in lowered or "compare" in lowered
+        ):
+            try:
+                baseline = self.calculator.calculate(draft)
+                if (
+                    baseline.requested_amount != projection.requested_amount
+                    or baseline.tenure_months != projection.tenure_months
+                ):
+                    comparison = baseline
+            except ProjectionUnavailable:
+                pass
+
+        if comparison is not None and "total interest" in lowered:
+            emi_delta = projection.emi - comparison.emi
+            interest_delta = projection.total_interest - comparison.total_interest
+            emi_direction = "increases" if emi_delta >= 0 else "decreases"
+            interest_direction = "increases" if interest_delta >= 0 else "decreases"
+            text = (
+                f"At {projection.tenure_months} months, the calculated monthly EMI would be "
+                f"Rs. {projection.emi}, and total interest would be Rs. {projection.total_interest}. "
+                f"Compared with the current {comparison.tenure_months}-month projection, EMI "
+                f"{emi_direction} by Rs. {abs(emi_delta)}, and total interest "
+                f"{interest_direction} by Rs. {abs(interest_delta)}. "
+                "This comparison does not change the draft."
+            )
+            labelled_values = {
+                "emi": str(projection.emi),
+                "total_interest": str(projection.total_interest),
+                "emi_change": str(abs(emi_delta)),
+                "total_interest_change": str(abs(interest_delta)),
+                "tenure_months": str(projection.tenure_months),
+            }
+        elif "total interest" in lowered or "total repayment" in lowered:
+            text = (
+                f"At {projection.tenure_months} months, the calculated monthly EMI is "
+                f"Rs. {projection.emi}, total interest is Rs. {projection.total_interest}, "
+                f"and total repayment is Rs. {projection.total_repayment}."
+            )
+            labelled_values = {
+                "emi": str(projection.emi),
+                "total_interest": str(projection.total_interest),
+                "total_repayment": str(projection.total_repayment),
+                "tenure_months": str(projection.tenure_months),
+            }
+        elif (
             "receive" in lowered
             or "get" in lowered
             or "disburs" in lowered

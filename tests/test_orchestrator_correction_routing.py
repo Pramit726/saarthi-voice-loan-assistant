@@ -49,8 +49,8 @@ async def test_existing_field_answer_is_confirmed_before_correction(
         }
     )
     repository = InMemoryStateRepository()
-    await repository.create(application, conversation)
     orchestrator = build_test_orchestrator(repository, interpreter)
+    await repository.create(application, conversation)
 
     first = await orchestrator.process_final_transcript(
         transcript_factory(correction_text)
@@ -59,7 +59,7 @@ async def test_existing_field_answer_is_confirmed_before_correction(
     assert first.draft.fields[FieldId.PREFERRED_TENURE].typed_value == 12
     assert first.state.pending_write_confirmation is not None
     assert first.response_plan.purpose == "confirm_correction"
-    assert "change it to 6" in " ".join(first.response_plan.message_segments)
+    assert "change it to 6 months" in " ".join(first.response_plan.message_segments)
 
     second = await orchestrator.process_final_transcript(
         transcript_factory(confirmation_text)
@@ -128,8 +128,12 @@ async def test_confirmed_amount_correction_asks_next_unanswered_field(
         }
     )
     repository = InMemoryStateRepository()
-    await repository.create(application, conversation)
     orchestrator = build_test_orchestrator(repository, interpreter)
+    application.current_projection = orchestrator.grounding.calculator.calculate(
+        application
+    )
+    old_projection_id = application.current_projection.projection_id
+    await repository.create(application, conversation)
 
     await orchestrator.process_final_transcript(transcript_factory(correction_text))
     result = await orchestrator.process_final_transcript(
@@ -142,6 +146,13 @@ async def test_confirmed_amount_correction_asks_next_unanswered_field(
     response = " ".join(result.response_plan.message_segments)
     assert "Next question" in response
     assert "monthly take-home income" in response
+    assert result.draft.current_projection is not None
+    assert result.draft.current_projection.projection_id != old_projection_id
+    assert result.draft.current_projection.requested_amount == 80000
+    assert result.draft.current_projection.source_application_revision == 5
+    events = await repository.list_events(conversation.session_id)
+    assert any(event.event_type == "projection_invalidated" for event in events)
+    assert any(event.event_type == "projection_refreshed" for event in events)
 
 
 async def test_affirmation_after_interrupted_correction_repeats_current_prompt(
@@ -184,9 +195,7 @@ async def test_affirmation_after_interrupted_correction_repeats_current_prompt(
     await repository.create(application, conversation)
     orchestrator = build_test_orchestrator(repository, interpreter)
 
-    result = await orchestrator.process_final_transcript(
-        transcript_factory("okay")
-    )
+    result = await orchestrator.process_final_transcript(transcript_factory("okay"))
 
     assert result.response_plan.purpose == "resume_prompt"
     assert result.response_plan.message_segments == [
