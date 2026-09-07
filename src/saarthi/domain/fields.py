@@ -155,6 +155,36 @@ def _normalise_contact(value: Any) -> str:
     return text
 
 
+_CITY_PREFIXES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^(?:my|the)\s+city\s+(?:is|would\s+be)\s+", re.IGNORECASE),
+    re.compile(r"^city\s+is\s+", re.IGNORECASE),
+    re.compile(r"^i\s+(?:live|stay|reside)\s+in\s+", re.IGNORECASE),
+    re.compile(r"^(?:i\s+am|i'm)\s+from\s+", re.IGNORECASE),
+    re.compile(
+        r"^(?:please\s+)?(?:record|set|change)\s+(?:my\s+)?city\s+(?:as|to)\s+",
+        re.IGNORECASE,
+    ),
+)
+
+
+def _normalise_city(value: Any) -> str:
+    """Extract a city name from common conversational answer forms."""
+
+    text = _clean_text(value).strip(" \t.,!?;:")
+    for prefix in _CITY_PREFIXES:
+        stripped = prefix.sub("", text, count=1).strip(" \t.,!?;:")
+        if stripped != text:
+            text = stripped
+            break
+
+    # A caller may include a state for clarity (for example, "Pune,
+    # Maharashtra"), but this field deliberately stores only the city.
+    text = text.split(",", maxsplit=1)[0].strip(" \t.,!?;:")
+    if not text:
+        raise ValueError("I could not identify the city.")
+    return text.title()
+
+
 def _validate_amount(value: Decimal) -> None:
     if not Decimal(50000) <= value <= Decimal(200000):
         raise ValueError(
@@ -246,7 +276,7 @@ FIELD_DEFINITIONS: dict[FieldId, FieldDefinition] = {
     FieldId.CITY: FieldDefinition(
         FieldId.CITY,
         "Which city should the demonstration draft record?",
-        _clean_text,
+        _normalise_city,
         _validate_short_text,
     ),
     FieldId.CONTACT_PREFERENCE: FieldDefinition(
