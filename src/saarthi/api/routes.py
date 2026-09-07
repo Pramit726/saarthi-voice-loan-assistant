@@ -14,7 +14,7 @@ from saarthi.api.schemas import (
     TokenRequest,
     TokenResponse,
 )
-from saarthi.domain.contracts import FinalTranscript, new_id, utc_now
+from saarthi.domain.contracts import FinalTranscript, TraceEvent, new_id, utc_now
 from saarthi.domain.enums import DeliveryStatus
 from saarthi.domain.fields import FIELD_DEFINITIONS
 from saarthi.domain.state import ConversationStateMachine
