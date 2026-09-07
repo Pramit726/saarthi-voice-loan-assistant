@@ -108,16 +108,6 @@ function VoiceMark({ state }: { state: VoiceState }) {
   );
 }
 
-function SaarthiLogo() {
-  return (
-    <svg viewBox="0 0 64 64" aria-hidden="true" className="saarthi-logo">
-      <path className="saarthi-logo-bubble" d="M17 12h30a10 10 0 0 1 10 10v15a10 10 0 0 1-10 10H33l-11 8v-8h-5A10 10 0 0 1 7 37V22A10 10 0 0 1 17 12Z" />
-      <path className="saarthi-logo-wave" d="M23 29v7M32 24v17M41 29v7" />
-      <circle className="saarthi-logo-dot" cx="49" cy="18" r="3" />
-    </svg>
-  );
-}
-
 function BorrowerView() {
   const [session, setSession] = useState<Session | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
@@ -257,7 +247,7 @@ function BorrowerView() {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Saarthi home"><span className="brand-mark"><SaarthiLogo /></span><span><strong>Saarthi</strong><small>Voice-first loan guidance</small></span></a>
+        <a className="brand" href="/" aria-label="Saarthi home"><img className="brand-logo" src="/saarthi-logo.png" alt="Saarthi — Voice-first loan guidance" /></a>
         <div className="topbar-meta"><span className="provider-pill"><i /> Rime voice · guarded AI</span><span className="draft-badge"><b>{submitted ? "Demo submitted" : "Draft only"}</b><small>{submitted ? "No lender request sent" : "Never submitted by AI"}</small></span></div>
       </header>
 
@@ -544,7 +534,7 @@ function Dashboard({ initialSessionId }: { initialSessionId: string | null }) {
   const stopLatencySamples = events.filter((event) => event.event_type === "user_facing_stop_latency_recorded" && typeof event.latency_ms === "number").map((event) => event.latency_ms as number).sort((a, b) => a - b);
   const stopLatencyP95 = stopLatencySamples.length ? Math.round(stopLatencySamples[Math.max(0, Math.ceil(stopLatencySamples.length * 0.95) - 1)]) : null;
   return <main className="shell dashboard">
-    <header className="hero dashboard-hero"><div><span className="eyebrow">OBSERVABILITY AND ACCEPTANCE</span><h1>Saarthi evidence dashboard</h1><p>Current-session evidence with selectable history and aggregate performance.</p></div><div className={`verdict ${acceptance?.verdict ?? "pending"}`}>{acceptance?.verdict ?? "pending"}</div></header>
+    <header className="hero dashboard-hero"><div><img className="dashboard-logo" src="/saarthi-logo.png" alt="Saarthi — Voice-first loan guidance" /><span className="eyebrow">OBSERVABILITY AND ACCEPTANCE</span><h1>Saarthi evidence dashboard</h1><p>Current-session evidence with selectable history and aggregate performance.</p></div><div className={`verdict ${acceptance?.verdict ?? "pending"}`}>{acceptance?.verdict ?? "pending"}</div></header>
     <section className="session-toolbar" aria-label="Evidence session selection">
       <div><span className="toolbar-label">Viewing session</span><strong>{sessionId ? sessionId.slice(-12) : "No sessions yet"}</strong></div>
       <label className="session-picker">Choose a session
