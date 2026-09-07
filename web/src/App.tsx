@@ -114,6 +114,7 @@ function BorrowerView() {
   const [transcript, setTranscript] = useState<string[]>([]);
   const [draft, setDraft] = useState<any>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [helpRequested, setHelpRequested] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -186,6 +187,10 @@ function BorrowerView() {
   const answeredFields = Object.keys(fields).length;
   const draftComplete = answeredFields === Object.keys(FIELD_LABELS).length;
   const copy = VOICE_STATE_COPY[voiceState];
+  const raiseHelpRequest = () => {
+    setHelpRequested(true);
+    setStatus("Human-help request recorded for this demo");
+  };
   return (
     <main className="shell">
       <header className="topbar">
@@ -232,6 +237,10 @@ function BorrowerView() {
           <div className="transcript" aria-live="polite">
             {transcript.length ? transcript.map((line, index) => <p key={`${line}-${index}`}>{line}</p>) : <p>Your live transcript will appear here.</p>}
           </div>
+          {session && <div className={`support-panel ${helpRequested ? "is-requested" : ""}`}>
+            <div><strong>{helpRequested ? "Human-help request recorded" : "Need more help?"}</strong><span>{helpRequested ? "Demo ticket SUP-DEMO-001 · no personal information was submitted." : "If an answer is unclear or unsatisfactory, you can ask for human review."}</span></div>
+            <button className="support-button" onClick={raiseHelpRequest} disabled={helpRequested}>{helpRequested ? "Ticket raised ✓" : "Raise a ticket"}</button>
+          </div>}
         </section>
 
         <section className="card">
