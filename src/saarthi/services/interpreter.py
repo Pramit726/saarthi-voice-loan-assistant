@@ -58,6 +58,8 @@ HEDGED_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\babout\b", re.IGNORECASE),
     re.compile(r"\bi think\b", re.IGNORECASE),
     re.compile(r"\bnot sure\b", re.IGNORECASE),
+    re.compile(r"\b(?:do not|don't) know\b", re.IGNORECASE),
+    re.compile(r"\b(?:unsure|no idea|skip|prefer not|rather not)\b", re.IGNORECASE),
     re.compile(r"\bsomewhere near\b", re.IGNORECASE),
     re.compile(r"\bmore or less\b", re.IGNORECASE),
 )
@@ -69,6 +71,12 @@ CALCULATION_VALUE_PATTERN = re.compile(
 )
 CALCULATION_CUE_PATTERN = re.compile(
     r"\b(what|how much|calculate|if i|would|will|change|choose|compare)\b",
+    re.IGNORECASE,
+)
+OFF_PATH_CUE_PATTERN = re.compile(
+    r"(?:\?|\b(?:what|why|how|when|where|which|who|does|do i|is the|are there|"
+    r"can you|could you|would|will|tell me|explain|mean|emi|interest|fee|charge|"
+    r"cost|rate|change|update|correct|instead|make it|set it)\b)",
     re.IGNORECASE,
 )
 
@@ -231,6 +239,9 @@ class RetrievedFewShotInterpreter:
         direct_calculation = self._direct_calculation(transcript)
         if direct_calculation:
             return direct_calculation
+        direct_plain_answer = self._direct_plain_answer(transcript, state)
+        if direct_plain_answer:
+            return direct_plain_answer
 
         ranked = sorted(
             EXAMPLES,
@@ -268,6 +279,7 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
                 "retrieved_examples": examples,
             },
             ensure_ascii=False,
+            separators=(",", ":"),
         )
         payload = await self.client.interpret(system=system, user=user)
         return self._guard(payload, transcript, state)
@@ -302,6 +314,35 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
             uncertainty=0,
             rationale_code="deterministic_calculation_match",
             explicit_write=False,
+        )
+
+    @staticmethod
+    def _direct_plain_answer(
+        transcript: FinalTranscript, state: ConversationState
+    ) -> TurnProposal | None:
+        """Accept a high-confidence, validator-backed answer without an LLM call."""
+
+        if (
+            state.pending_field is None
+            or (transcript.confidence is not None and transcript.confidence < 0.70)
+            or OFF_PATH_CUE_PATTERN.search(transcript.text)
+            or any(pattern.search(transcript.text) for pattern in HEDGED_VALUE_PATTERNS)
+        ):
+            return None
+        try:
+            candidate = normalise_and_validate(state.pending_field, transcript.text)
+        except FieldValidationError:
+            return None
+        return TurnProposal(
+            source_transcript_id=transcript.transcript_id,
+            acts=[TurnAct.ANSWER],
+            route=TurnRoute.FIELD_ANSWER,
+            target_field=state.pending_field,
+            candidate_value=candidate,
+            source_span=transcript.text,
+            uncertainty=0,
+            rationale_code="deterministic_valid_field_answer",
+            explicit_write=True,
         )
 
     @staticmethod

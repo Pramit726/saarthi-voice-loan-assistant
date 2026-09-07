@@ -284,3 +284,23 @@ class SqliteStateRepository:
                 )
             ).all()
         return [TraceEvent.model_validate_json(row.payload) for row in rows]
+
+    async def list_states(self, limit: int = 100) -> list[ConversationState]:
+        async with self.engine.connect() as connection:
+            rows = (
+                await connection.execute(
+                    select(sessions.c.payload)
+                    .order_by(sessions.c.updated_at.desc())
+                    .limit(limit)
+                )
+            ).all()
+        return [ConversationState.model_validate_json(row.payload) for row in rows]
+
+    async def list_all_events(self) -> list[TraceEvent]:
+        async with self.engine.connect() as connection:
+            rows = (
+                await connection.execute(
+                    select(trace_events.c.payload).order_by(trace_events.c.sequence)
+                )
+            ).all()
+        return [TraceEvent.model_validate_json(row.payload) for row in rows]

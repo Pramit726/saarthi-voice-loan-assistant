@@ -40,6 +40,8 @@ class StateRepository(Protocol):
     ) -> CommitResult: ...
     async def append_event(self, event: TraceEvent) -> None: ...
     async def list_events(self, session_id: str) -> list[TraceEvent]: ...
+    async def list_states(self, limit: int = 100) -> list[ConversationState]: ...
+    async def list_all_events(self) -> list[TraceEvent]: ...
 
 
 class InMemoryStateRepository:
@@ -137,3 +139,14 @@ class InMemoryStateRepository:
 
     async def list_events(self, session_id: str) -> list[TraceEvent]:
         return deepcopy(self.events.get(session_id, []))
+
+    async def list_states(self, limit: int = 100) -> list[ConversationState]:
+        states = sorted(
+            self.states.values(), key=lambda state: state.updated_at, reverse=True
+        )
+        return deepcopy(states[:limit])
+
+    async def list_all_events(self) -> list[TraceEvent]:
+        return deepcopy(
+            [event for session_events in self.events.values() for event in session_events]
+        )

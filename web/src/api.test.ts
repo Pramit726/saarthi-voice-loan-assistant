@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createSession, getToken, sendControl } from "./api";
+import { createSession, getAggregateEvidence, getSessions, getToken, sendControl } from "./api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -72,5 +72,18 @@ describe("API client", () => {
     );
 
     await expect(createSession()).rejects.toThrow("provider unavailable");
+  });
+
+  it("loads selectable sessions and aggregate evidence", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ session_count: 4 }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getSessions();
+    await expect(getAggregateEvidence()).resolves.toMatchObject({ session_count: 4 });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/sessions?limit=100");
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/evidence/aggregate");
   });
 });

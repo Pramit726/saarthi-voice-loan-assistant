@@ -126,8 +126,12 @@ def _normalise_tenure(value: Any) -> int:
     text = _clean_text(value).lower()
     match = re.search(r"\d+", text)
     if not match:
-        raise ValueError("I could not identify the tenure.")
-    count = int(match.group())
+        word_value = _number_words_to_decimal(text)
+        if word_value is None or word_value != word_value.to_integral_value():
+            raise ValueError("I could not identify the tenure.")
+        count = int(word_value)
+    else:
+        count = int(match.group())
     if "year" in text:
         count *= 12
     return count

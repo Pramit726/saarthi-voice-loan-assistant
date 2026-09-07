@@ -35,6 +35,9 @@ async def health(request: Request) -> dict:
         "missing_provider_configuration": runtime.settings.missing_required_providers(),
         "product_id": "SPL-DEMO-01",
         "product_version": "1.1",
+        "grounded_wording_mode": (
+            "llm" if runtime.settings.grounded_llm_wording_enabled else "approved_fact"
+        ),
     }
 
 
@@ -53,6 +56,23 @@ async def create_session(request: Request) -> SessionCreateResponse:
         pending_field=state.pending_field.value if state.pending_field else None,
         opening_prompt=opening,
     )
+
+
+@router.get("/sessions")
+async def list_sessions(request: Request, limit: int = 50) -> list[dict]:
+    runtime = runtime_from(request)
+    bounded_limit = min(max(limit, 1), 200)
+    states = await runtime.repository.list_states(bounded_limit)
+    events = await runtime.repository.list_all_events()
+    return runtime.evidence.session_summaries(states, events)
+
+
+@router.get("/evidence/aggregate")
+async def get_aggregate_evidence(request: Request) -> dict:
+    runtime = runtime_from(request)
+    states = await runtime.repository.list_states(10_000)
+    events = await runtime.repository.list_all_events()
+    return runtime.evidence.aggregate(states, events)
 
 
 @router.post("/livekit/token", response_model=TokenResponse)

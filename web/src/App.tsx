@@ -2,12 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Room, RoomEvent } from "livekit-client";
 import {
   createSession,
+  getAggregateEvidence,
   getAcceptance,
   getDraft,
   getEvents,
+  getSessions,
   getToken,
   sendControl,
+  type AggregateEvidence,
   type Session,
+  type SessionSummary,
 } from "./api";
 
 type EvidenceEvent = {
@@ -161,7 +165,7 @@ function EvidenceBarChart({
           const y = 16 + index * rowHeight;
           const barWidth = (item.value / max) * plotWidth;
           return (
-            <g key={item.label}>
+            <g key={`${item.label}-${index}`}>
               <text x="0" y={y + 14} className="chart-label">{item.label}</text>
               <rect x={labelWidth + 12} y={y} width={plotWidth} height="20" rx="8" className="chart-track" />
               <rect x={labelWidth + 12} y={y} width={Math.max(item.value ? 6 : 0, barWidth)} height="20" rx="8" className={`chart-bar ${tone}`} />
@@ -178,16 +182,16 @@ function EvidenceBarChart({
 
 function LatencyChart({ events }: { events: EvidenceEvent[] }) {
   const samples = events
-    .filter((event) => typeof event.latency_ms === "number")
-    .slice(-8)
+    .filter((event) => typeof event.latency_ms === "number" && ["turn_interpreted", "interpreter_failed", "response_released"].includes(event.event_type))
+    .slice(-10)
     .map((event) => ({
-      label: event.event_type.replaceAll("_", " "),
+      label: `${event.turn_id?.slice(-5) ?? "turn"} · ${event.event_type === "response_released" ? "total" : "interpret"}`,
       value: Math.round(event.latency_ms ?? 0),
     }));
   if (!samples.length) {
     return <section className="chart-panel empty-chart"><div className="chart-heading"><h2>Backend decision latency</h2><span>No latency samples yet</span></div><p>Latency evidence appears after the assistant processes a turn.</p></section>;
   }
-  return <EvidenceBarChart title="Backend decision latency" description="milliseconds · latest samples" data={samples.map((sample) => ({ ...sample, detail: `${sample.value} ms` }))} tone="orange" />;
+  return <EvidenceBarChart title="Interpreter and decision latency" description="milliseconds · latest samples" data={samples.map((sample) => ({ ...sample, detail: `${sample.value} ms` }))} tone="orange" />;
 }
 
 const EVENT_TITLES: Record<string, string> = {
@@ -239,16 +243,51 @@ function eventTone(event: EvidenceEvent) {
   return "normal";
 }
 
-function Dashboard({ sessionId }: { sessionId: string }) {
+function Dashboard({ initialSessionId }: { initialSessionId: string | null }) {
+  const [sessionId, setSessionId] = useState(initialSessionId ?? "");
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [aggregate, setAggregate] = useState<AggregateEvidence | null>(null);
   const [events, setEvents] = useState<EvidenceEvent[]>([]);
   const [draft, setDraft] = useState<any>(null);
   const [acceptance, setAcceptance] = useState<any>(null);
+
   useEffect(() => {
+    const loadOverview = () => Promise.all([getSessions(), getAggregateEvidence()]).then(([available, totals]) => {
+      setSessions(available);
+      setAggregate(totals);
+      setSessionId((current) => {
+        if (current && available.some((item) => item.session_id === current)) return current;
+        const next = available[0]?.session_id ?? "";
+        if (next) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("session", next);
+          window.history.replaceState({}, "", url);
+        }
+        return next;
+      });
+    });
+    loadOverview().catch(() => undefined);
+    const timer = window.setInterval(() => loadOverview().catch(() => undefined), 5000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!sessionId) return;
     const load = () => Promise.all([getEvents(sessionId), getDraft(sessionId), getAcceptance(sessionId)]).then(([e, d, a]) => { setEvents(e); setDraft(d); setAcceptance(a); });
     load().catch(() => undefined);
     const timer = window.setInterval(() => load().catch(() => undefined), 1500);
     return () => window.clearInterval(timer);
   }, [sessionId]);
+
+  const chooseSession = (nextSessionId: string) => {
+    setSessionId(nextSessionId);
+    setEvents([]);
+    setDraft(null);
+    setAcceptance(null);
+    const url = new URL(window.location.href);
+    url.searchParams.set("session", nextSessionId);
+    window.history.replaceState({}, "", url);
+  };
   const grounded = events.filter((event) => event.event_type === "grounding_decided");
   const controls = events.filter((event) => /speech|stale|control/.test(event.event_type));
   const answeredFields = Object.keys(draft?.fields ?? {}).length;
@@ -273,7 +312,30 @@ function Dashboard({ sessionId }: { sessionId: string }) {
   const hardFailures = acceptance?.hard_gate_failures?.length ?? 0;
   const turns = new Set(events.map((event) => event.turn_id).filter(Boolean)).size;
   return <main className="shell dashboard">
-    <header className="hero"><div><span className="eyebrow">OBSERVABILITY AND ACCEPTANCE</span><h1>Saarthi evidence dashboard</h1><p>Session {sessionId}</p></div><div className={`verdict ${acceptance?.verdict ?? "pending"}`}>{acceptance?.verdict ?? "pending"}</div></header>
+    <header className="hero dashboard-hero"><div><span className="eyebrow">OBSERVABILITY AND ACCEPTANCE</span><h1>Saarthi evidence dashboard</h1><p>Current-session evidence with selectable history and aggregate performance.</p></div><div className={`verdict ${acceptance?.verdict ?? "pending"}`}>{acceptance?.verdict ?? "pending"}</div></header>
+    <section className="session-toolbar" aria-label="Evidence session selection">
+      <div><span className="toolbar-label">Viewing session</span><strong>{sessionId ? sessionId.slice(-12) : "No sessions yet"}</strong></div>
+      <label className="session-picker">Choose a session
+        <select value={sessionId} onChange={(event) => chooseSession(event.target.value)} disabled={!sessions.length}>
+          {!sessions.length && <option value="">No sessions available</option>}
+          {sessions.map((item, index) => <option key={item.session_id} value={item.session_id}>
+            {index === 0 ? "Latest · " : ""}{item.session_id.slice(-8)} · {item.turn_count} turns · {item.verdict}
+          </option>)}
+        </select>
+      </label>
+    </section>
+    <section className="aggregate-section">
+      <div className="aggregate-heading"><div><span className="eyebrow">ALL-SESSION VIEW</span><h2>Aggregate KPIs</h2></div><span>{aggregate?.session_count ?? 0} sessions · {aggregate?.response_latency_sample_count ?? 0} latency samples</span></div>
+      <div className="metric-row aggregate-metrics">
+        <article><span>Total turns</span><strong>{aggregate?.turn_count ?? 0}</strong></article>
+        <article><span>Interpreter success</span><strong>{aggregate?.interpreter_success_rate_pct ?? 0}%</strong></article>
+        <article><span>Decision latency p50</span><strong>{Math.round(aggregate?.response_latency_p50_ms ?? 0)}<small> ms</small></strong></article>
+        <article><span>Decision latency p95</span><strong>{Math.round(aggregate?.response_latency_p95_ms ?? 0)}<small> ms</small></strong></article>
+        <article><span>Latency target met</span><strong>{aggregate?.latency_target_attainment_pct ?? 0}%</strong></article>
+        <article className={(aggregate?.hard_failure_count ?? 0) > 0 ? "metric-alert" : ""}><span>Hard failures</span><strong>{aggregate?.hard_failure_count ?? 0}</strong></article>
+      </div>
+    </section>
+    <div className="scope-divider"><span>Selected session</span><strong>{sessionId ? sessionId.slice(-8) : "—"}</strong></div>
     <div className="metric-row"><article><span>Draft revision</span><strong>{draft?.revision ?? 0}</strong></article><article><span>Trace events</span><strong>{events.length}</strong></article><article><span>Grounded answers</span><strong>{grounded.length}</strong></article><article><span>Control evidence</span><strong>{controls.length}</strong></article></div>
     <section className="card progress-card">
       <div className="section-title"><h2>Draft completion</h2><strong>{answeredFields} of {fieldTotal} fields</strong></div>
@@ -308,5 +370,5 @@ function Dashboard({ sessionId }: { sessionId: string }) {
 export function App() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const sessionId = params.get("session");
-  return params.get("view") === "dashboard" && sessionId ? <Dashboard sessionId={sessionId} /> : <BorrowerView />;
+  return params.get("view") === "dashboard" ? <Dashboard initialSessionId={sessionId} /> : <BorrowerView />;
 }

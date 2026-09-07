@@ -14,6 +14,7 @@ from saarthi.providers.knowledge import (
 from saarthi.providers.livekit import LiveKitTokenProvider
 from saarthi.services.acceptance import AcceptanceService
 from saarthi.services.calculator import FinancialCalculator
+from saarthi.services.evidence import EvidenceService
 from saarthi.services.grounding import GroundedAnswerService
 from saarthi.services.interpreter import RetrievedFewShotInterpreter
 from saarthi.services.orchestrator import TurnOrchestrator
@@ -34,6 +35,7 @@ class Runtime:
     sessions: SessionService
     orchestrator: TurnOrchestrator
     acceptance: AcceptanceService
+    evidence: EvidenceService
     livekit_tokens: LiveKitTokenProvider
 
     async def initialize(self) -> None:
@@ -76,7 +78,9 @@ def build_runtime(settings: Settings) -> Runtime:
     grounding = GroundedAnswerService(
         knowledge,
         calculator=calculator,
-        writer=groq,
+        # Atomic approved facts are already written for speech. Avoid a second,
+        # serial LLM call unless richer model wording is explicitly enabled.
+        writer=groq if settings.grounded_llm_wording_enabled else None,
         retrieval_limit=settings.retrieval_limit,
     )
     interpreter = RetrievedFewShotInterpreter(gemini)
@@ -93,6 +97,7 @@ def build_runtime(settings: Settings) -> Runtime:
         api_secret=settings.livekit_api_secret.get_secret_value(),
         ttl_seconds=settings.livekit_token_ttl_seconds,
     )
+    acceptance = AcceptanceService()
     return Runtime(
         settings=settings,
         repository=repository,
@@ -102,6 +107,11 @@ def build_runtime(settings: Settings) -> Runtime:
         knowledge=knowledge,
         sessions=SessionService(repository),
         orchestrator=orchestrator,
-        acceptance=AcceptanceService(),
+        acceptance=acceptance,
+        evidence=EvidenceService(
+            acceptance,
+            normal_latency_target_ms=settings.normal_turn_first_audio_target_ms,
+            grounded_latency_target_ms=settings.grounded_turn_first_audio_target_ms,
+        ),
         livekit_tokens=livekit_tokens,
     )

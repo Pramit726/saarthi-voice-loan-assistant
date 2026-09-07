@@ -18,6 +18,12 @@ class GeminiStructuredClient:
             base_url="https://generativelanguage.googleapis.com/v1beta",
             headers={"x-goog-api-key": api_key},
             timeout=timeout_seconds,
+            http2=True,
+            limits=httpx.Limits(
+                max_connections=10,
+                max_keepalive_connections=5,
+                keepalive_expiry=60.0,
+            ),
         )
 
     async def structured(
@@ -35,10 +41,11 @@ class GeminiStructuredClient:
                     "schema": schema.model_json_schema(),
                 },
                 "generation_config": {
-                    "max_output_tokens": 512,
+                    "max_output_tokens": 384,
                     "thinking_level": "minimal",
                     "seed": 0,
                 },
+                "store": False,
             },
         )
         response.raise_for_status()

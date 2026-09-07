@@ -145,6 +145,62 @@ async def test_hedged_money_is_understood_without_calling_the_llm(
     assert result.rationale_code == "hedged_value"
 
 
+async def test_valid_plain_money_answer_bypasses_the_llm(
+    transcript_factory, conversation
+):
+    interpreter = RetrievedFewShotInterpreter(client=None)  # type: ignore[arg-type]
+
+    result = await interpreter.interpret(
+        transcript_factory("one lakh rupees"), conversation
+    )
+
+    assert result.route is TurnRoute.FIELD_ANSWER
+    assert result.target_field is FieldId.REQUESTED_AMOUNT
+    assert result.candidate_value == 100000
+    assert result.rationale_code == "deterministic_valid_field_answer"
+
+
+async def test_spoken_tenure_answer_bypasses_the_llm(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.PREFERRED_TENURE
+    interpreter = RetrievedFewShotInterpreter(client=None)  # type: ignore[arg-type]
+
+    result = await interpreter.interpret(transcript_factory("twelve months"), conversation)
+
+    assert result.candidate_value == 12
+    assert result.explicit_write is True
+
+
+def test_questions_and_low_confidence_turns_do_not_use_plain_answer_fast_path(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.PREFERRED_TENURE
+    assert (
+        RetrievedFewShotInterpreter._direct_plain_answer(
+            transcript_factory("what does tenure mean"), conversation
+        )
+        is None
+    )
+    assert (
+        RetrievedFewShotInterpreter._direct_plain_answer(
+            transcript_factory("twelve months", confidence=0.42), conversation
+        )
+        is None
+    )
+
+
+def test_uncertainty_is_not_committed_as_free_text(transcript_factory, conversation):
+    conversation.pending_field = FieldId.LOAN_PURPOSE
+
+    assert (
+        RetrievedFewShotInterpreter._direct_plain_answer(
+            transcript_factory("I don't know"), conversation
+        )
+        is None
+    )
+
+
 def test_control_is_resolved_without_llm(transcript_factory):
     result = RetrievedFewShotInterpreter._direct_control(
         transcript_factory("please stop speaking")

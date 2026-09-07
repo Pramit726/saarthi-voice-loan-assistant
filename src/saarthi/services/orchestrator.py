@@ -80,6 +80,7 @@ class TurnOrchestrator:
             },
         )
 
+        interpreter_started = perf_counter()
         try:
             proposal = await self.interpreter.interpret(transcript, state)
         except Exception as exc:  # noqa: BLE001 - all interpreter failures must fail closed
@@ -95,6 +96,7 @@ class TurnOrchestrator:
                 "tr1_interpreter",
                 "failed_closed",
                 {"error_type": type(exc).__name__},
+                latency_ms=(perf_counter() - interpreter_started) * 1000,
             )
             await self._trace(
                 state,
@@ -130,6 +132,7 @@ class TurnOrchestrator:
                 "explicit_write": proposal.explicit_write,
                 "rationale_code": proposal.rationale_code,
             },
+            latency_ms=(perf_counter() - interpreter_started) * 1000,
         )
 
         commit_result = None
