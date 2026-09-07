@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import os
 from pathlib import Path
 
 import uvicorn
@@ -62,8 +63,12 @@ app = create_app()
 
 def run_api() -> None:
     settings = get_settings()
+    railway_port = os.getenv("PORT")
     uvicorn.run(
-        "saarthi.main:app", host=settings.api_host, port=settings.api_port, reload=False
+        "saarthi.main:app",
+        host="0.0.0.0" if railway_port else settings.api_host,
+        port=int(railway_port or settings.api_port),
+        reload=False,
     )
 
 

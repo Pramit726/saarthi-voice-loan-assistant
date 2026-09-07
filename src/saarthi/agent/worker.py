@@ -42,6 +42,20 @@ CONTROL_COMMANDS = {
     "submit",
 }
 
+OPENING_GREETING_PREFIX = (
+    "Welcome to Saarthi, your voice-first loan guidance assistant. "
+    "This is a fictional demonstration that creates a reviewable draft only. "
+    "It does not approve or submit a loan. I will ask one question at a time, "
+    "and you can interrupt me anytime to ask a question, correct an answer, "
+    "repeat, pause, or stop. "
+)
+
+
+def build_opening_greeting(opening_prompt: str) -> str:
+    """Build a short orientation before the first or resumed field question."""
+
+    return OPENING_GREETING_PREFIX + opening_prompt
+
 
 class ActiveGeneration:
     def __init__(self) -> None:
@@ -90,8 +104,7 @@ class SaarthiAgent(Agent):
 
     async def on_enter(self) -> None:
         await self.session.say(
-            "Welcome to Saarthi. This is a fictional demonstration and creates only a draft. "
-            + self.opening_prompt,
+            build_opening_greeting(self.opening_prompt),
             allow_interruptions=True,
         )
 

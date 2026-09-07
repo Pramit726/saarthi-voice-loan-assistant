@@ -40,49 +40,52 @@ export type AggregateEvidence = {
   hard_failure_count: number;
 };
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const apiUrl = (path: string) => `${API_BASE_URL}${path}`;
+
 const json = async <T>(response: Response): Promise<T> => {
   if (!response.ok) throw new Error((await response.text()) || response.statusText);
   return response.json() as Promise<T>;
 };
 
 export const createSession = (language: "en-IN" | "hi-IN" = "en-IN") =>
-  fetch("/api/sessions", {
+  fetch(apiUrl("/api/sessions"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ language }),
   }).then((response) => json<Session>(response));
 
 export const getToken = (sessionId: string) =>
-  fetch("/api/livekit/token", {
+  fetch(apiUrl("/api/livekit/token"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ session_id: sessionId }),
   }).then((response) => json<{ url: string; token: string }>(response));
 
 export const sendControl = (sessionId: string, command: string) =>
-  fetch(`/api/sessions/${sessionId}/controls`, {
+  fetch(apiUrl(`/api/sessions/${sessionId}/controls`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ command }),
   }).then((response) => json<Record<string, unknown>>(response));
 
 export const getDraft = (sessionId: string) =>
-  fetch(`/api/sessions/${sessionId}/draft`).then((response) => json<any>(response));
+  fetch(apiUrl(`/api/sessions/${sessionId}/draft`)).then((response) => json<any>(response));
 
 export const getEvents = (sessionId: string) =>
-  fetch(`/api/sessions/${sessionId}/events`).then((response) => json<any[]>(response));
+  fetch(apiUrl(`/api/sessions/${sessionId}/events`)).then((response) => json<any[]>(response));
 
 export const getAcceptance = (sessionId: string) =>
-  fetch(`/api/sessions/${sessionId}/acceptance`).then((response) => json<any>(response));
+  fetch(apiUrl(`/api/sessions/${sessionId}/acceptance`)).then((response) => json<any>(response));
 
 export const getSessions = () =>
-  fetch("/api/sessions?limit=100").then((response) => json<SessionSummary[]>(response));
+  fetch(apiUrl("/api/sessions?limit=100")).then((response) => json<SessionSummary[]>(response));
 
 export const getAggregateEvidence = () =>
-  fetch("/api/evidence/aggregate").then((response) => json<AggregateEvidence>(response));
+  fetch(apiUrl("/api/evidence/aggregate")).then((response) => json<AggregateEvidence>(response));
 
 export const recordStopLatency = (sessionId: string, latencyMs: number) =>
-  fetch(`/api/sessions/${sessionId}/metrics/stop-latency`, {
+  fetch(apiUrl(`/api/sessions/${sessionId}/metrics/stop-latency`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ latency_ms: latencyMs }),

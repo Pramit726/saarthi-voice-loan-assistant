@@ -101,7 +101,10 @@ function VoiceMark({ state }: { state: VoiceState }) {
     );
   }
   return (
-    <img src="/saarthi-mark.png" alt="" className="voice-mark-logo" />
+    <svg viewBox="0 0 64 64" aria-hidden="true" className="voice-mark voice-mark-idle">
+      <path d="M32 8l3.5 16.5L52 28l-16.5 3.5L32 48l-3.5-16.5L12 28l16.5-3.5L32 8Z" />
+      <path d="M50 43l1.7 7.3L59 52l-7.3 1.7L50 61l-1.7-7.3L41 52l7.3-1.7L50 43Z" />
+    </svg>
   );
 }
 
@@ -244,13 +247,13 @@ function BorrowerView() {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Saarthi home"><img className="brand-logo" src="/saarthi-logo.png" alt="Saarthi — Voice-first loan guidance" /></a>
+        <a className="brand" href="/" aria-label="Saarthi home"><img className="brand-logo" src="/saarthi-mark.jpg" alt="" /><span className="brand-copy"><strong>Saarthi</strong><small>Voice-first loan guidance</small></span></a>
         <div className="topbar-meta"><span className="provider-pill"><i /> Rime voice · guarded AI</span><span className="draft-badge"><b>{submitted ? "Demo submitted" : "Draft only"}</b><small>{submitted ? "No lender request sent" : "Never submitted by AI"}</small></span></div>
       </header>
 
       <section className="hero">
         <div><span className="eyebrow">PRIVATE APPLICATION COMPANION</span><h1>A calmer way to<br /><em>get loan-ready.</em></h1><p>Ask questions, make corrections, and review every answer before you decide.</p></div>
-        <div className="hero-note"><span className="hero-note-icon"><img src="/saarthi-mark.png" alt="" /></span><div><strong>You are in control</strong><small>Saarthi can explain and prepare a draft. Only you can submit it.</small></div></div>
+        <div className="hero-note"><span className="hero-note-icon"><img src="/saarthi-mark.jpg" alt="" /></span><div><strong>You are in control</strong><small>Saarthi can explain and prepare a draft. Only you can submit it.</small></div></div>
       </section>
 
       {!session && <section className="language-card" aria-label="Choose voice language">
@@ -531,7 +534,7 @@ function Dashboard({ initialSessionId }: { initialSessionId: string | null }) {
   const stopLatencySamples = events.filter((event) => event.event_type === "user_facing_stop_latency_recorded" && typeof event.latency_ms === "number").map((event) => event.latency_ms as number).sort((a, b) => a - b);
   const stopLatencyP95 = stopLatencySamples.length ? Math.round(stopLatencySamples[Math.max(0, Math.ceil(stopLatencySamples.length * 0.95) - 1)]) : null;
   return <main className="shell dashboard">
-    <header className="hero dashboard-hero"><div><img className="dashboard-logo" src="/saarthi-logo.png" alt="Saarthi — Voice-first loan guidance" /><span className="eyebrow">OBSERVABILITY AND ACCEPTANCE</span><h1>Saarthi evidence dashboard</h1><p>Current-session evidence with selectable history and aggregate performance.</p></div><div className={`verdict ${acceptance?.verdict ?? "pending"}`}>{acceptance?.verdict ?? "pending"}</div></header>
+     <header className="hero dashboard-hero"><div><div className="dashboard-brand"><img className="dashboard-logo" src="/saarthi-mark.jpg" alt="" /><span className="brand-copy"><strong>Saarthi</strong><small>Voice-first loan guidance</small></span></div><span className="eyebrow">OBSERVABILITY AND ACCEPTANCE</span><h1>Saarthi evidence dashboard</h1><p>Current-session evidence with selectable history and aggregate performance.</p></div><div className={`verdict ${acceptance?.verdict ?? "pending"}`}>{acceptance?.verdict ?? "pending"}</div></header>
     <section className="session-toolbar" aria-label="Evidence session selection">
       <div><span className="toolbar-label">Viewing session</span><strong>{sessionId ? sessionId.slice(-12) : "No sessions yet"}</strong></div>
       <label className="session-picker">Choose a session
