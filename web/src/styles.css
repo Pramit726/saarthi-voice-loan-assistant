@@ -83,7 +83,8 @@ h2 { margin: 0 0 18px; color: #17365d; }
 .hero h1 em { color: #147d80; font-style: normal; }
 .hero p { max-width: 620px; font-size: 17px; line-height: 1.6; }
 .hero-note { display: flex; align-items: flex-start; gap: 13px; width: min(330px, 100%); padding: 16px 18px; border: 1px solid #c8e2dd; border-radius: 18px; background: linear-gradient(145deg, rgba(231,247,243,.88), rgba(255,255,255,.75)); }
-.hero-note-icon { display: grid; place-items: center; flex: 0 0 30px; height: 30px; border-radius: 10px; background: #147d80; color: white; }
+.hero-note-icon { display: grid; place-items: center; flex: 0 0 34px; height: 34px; overflow: hidden; border: 1px solid #b9ded6; border-radius: 11px; background: #eff9f6; }
+.hero-note-icon img { width: 31px; height: 31px; object-fit: contain; }
 .hero-note strong, .hero-note small { display: block; }
 .hero-note strong { margin-bottom: 4px; color: #17365d; font-size: 13px; }
 .hero-note small { color: #557168; font-size: 12px; line-height: 1.45; }
@@ -109,7 +110,7 @@ h2 { margin: 0 0 18px; color: #17365d; }
 .orb-paused .orb-core { background: linear-gradient(145deg, #657a91, #43586e); }
 .orb-listening .orb-core { animation: orb-listen 2.2s ease-in-out infinite; }.orb-listening .orb-halo-one { animation: halo-listen 2.2s ease-in-out infinite; }.orb-speaking .orb-core { animation: orb-speak .72s ease-in-out infinite alternate; }.orb-speaking .orb-halo-one { animation: halo-speak .72s ease-in-out infinite alternate; }
 @keyframes orb-listen { 50% { transform: scale(1.025); } } @keyframes halo-listen { 50% { transform: scale(1.1); opacity: .75; } } @keyframes orb-speak { from { transform: scale(.985); } to { transform: scale(1.05); } } @keyframes halo-speak { from { transform: scale(1.04); } to { transform: scale(1.15); opacity: .9; } }
-.voice-mark { width: 74px; height: 74px; fill: none; stroke: rgba(255,255,255,.95); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.8; }
+.voice-mark { width: 74px; height: 74px; fill: none; stroke: rgba(255,255,255,.95); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.8; }.voice-mark-logo { width: 92px; height: 92px; object-fit: contain; filter: drop-shadow(0 8px 12px rgba(8,49,86,.22)); }
 .voice-mark-idle { fill: rgba(255,255,255,.95); stroke: none; }.voice-mark-speaking { width: 82px; height: 82px; stroke-width: 4.5; }.voice-mark-listening { stroke-width: 3.5; }.voice-mark-paused { stroke-width: 5; }
 .voice-card h2 { position: relative; z-index: 1; margin-bottom: 5px; font-size: 23px; }.voice-detail, .voice-support { position: relative; z-index: 1; margin: 0 auto; max-width: 440px; }.voice-detail { color: #263f5b; font-size: 15px; font-weight: 700; }.voice-support { margin-top: 5px; color: #718196; font-size: 12px; line-height: 1.45; }
 .shell:not(.dashboard) .primary { position: relative; z-index: 1; margin: 22px auto 0; padding: 13px 22px; border-radius: 14px; background: #17365d; box-shadow: 0 8px 18px rgba(23,54,93,.16); transition: transform .2s ease, box-shadow .2s ease; }.shell:not(.dashboard) .primary:hover { transform: translateY(-2px); box-shadow: 0 12px 22px rgba(23,54,93,.2); }
