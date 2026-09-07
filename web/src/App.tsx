@@ -456,17 +456,12 @@ function AcceptanceEvidenceTable({
   const passed = measured && stopLatencyP95 <= 500;
   return (
     <section className="card acceptance-table-card">
-      <div className="section-title">
-        <div><span className="eyebrow">ACCEPTANCE EVIDENCE</span><h2>Measured voice controls</h2></div>
-        <span className="table-note">Selected session</span>
-      </div>
       <div className="table-wrap">
         <table className="acceptance-table">
-          <thead><tr><th>Metric</th><th>Target</th><th>Observed</th><th>Result</th></tr></thead>
+          <thead><tr><th>Metric</th><th>Observed</th><th>Result</th></tr></thead>
           <tbody>
             <tr>
               <td>User-facing stop latency</td>
-              <td>p95 ≤ 500 ms</td>
               <td>{measured ? `${stopLatencyP95} ms · ${sampleCount} sample${sampleCount === 1 ? "" : "s"}` : "Not recorded"}</td>
               <td><span className={`evidence-status ${!measured ? "pending" : passed ? "pass" : "fail"}`}>{!measured ? "Inconclusive" : passed ? "Pass" : "Miss"}</span></td>
             </tr>
