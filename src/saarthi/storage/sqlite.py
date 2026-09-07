@@ -73,9 +73,25 @@ def _dump(model) -> str:
     return json.dumps(model.model_dump(mode="json"), separators=(",", ":"))
 
 
+def normalize_database_url(database_url: str) -> str:
+    """Normalize provider-style PostgreSQL URLs for SQLAlchemy asyncpg.
+
+    Railway exposes PostgreSQL references as ``postgresql://`` (and some
+    providers still use ``postgres://``).  SQLAlchemy's async engine needs an
+    explicit async driver, while SQLite URLs must remain unchanged.
+    """
+    if database_url.startswith("postgresql://"):
+        return "postgresql+asyncpg://" + database_url.removeprefix("postgresql://")
+    if database_url.startswith("postgres://"):
+        return "postgresql+asyncpg://" + database_url.removeprefix("postgres://")
+    return database_url
+
+
 class SqliteStateRepository:
     def __init__(self, database_url: str) -> None:
-        self.engine: AsyncEngine = create_async_engine(database_url)
+        self.engine: AsyncEngine = create_async_engine(
+            normalize_database_url(database_url)
+        )
 
     async def initialize(self) -> None:
         async with self.engine.begin() as connection:
