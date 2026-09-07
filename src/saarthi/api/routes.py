@@ -9,6 +9,7 @@ from saarthi.api.schemas import (
     DeliveryUpdate,
     SessionCreateResponse,
     SessionCreateRequest,
+    StopLatencyRequest,
     TextTurnRequest,
     TokenRequest,
     TokenResponse,
@@ -219,6 +220,35 @@ async def update_delivery(
         "segment_id": payload.segment_id,
         "status": payload.status.value,
     }
+
+
+@router.post("/sessions/{session_id}/metrics/stop-latency")
+async def record_stop_latency(
+    session_id: str, payload: StopLatencyRequest, request: Request
+) -> dict:
+    """Record browser click-to-audio-detach latency for the acceptance run."""
+
+    runtime = runtime_from(request)
+    state = await runtime.repository.get_state(session_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    await runtime.repository.append_event(
+        TraceEvent(
+            event_type="user_facing_stop_latency_recorded",
+            session_id=session_id,
+            application_id=state.application_id,
+            trace_id=state.trace_id,
+            component="browser_voice_client",
+            outcome="recorded",
+            turn_id=state.current_turn_id,
+            generation_id=state.generation_id,
+            application_revision=state.linked_application_revision,
+            state_version=state.state_version,
+            latency_ms=payload.latency_ms,
+            payload={"source": "stop_button", "measurement": "click_to_audio_detach"},
+        )
+    )
+    return {"recorded": True, "latency_ms": payload.latency_ms}
 
 
 @router.get("/sessions/{session_id}/export")

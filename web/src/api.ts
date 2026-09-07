@@ -29,6 +29,10 @@ export type AggregateEvidence = {
   response_latency_average_ms: number;
   response_latency_p50_ms: number;
   response_latency_p95_ms: number;
+  stop_latency_sample_count: number;
+  stop_latency_average_ms: number;
+  stop_latency_p95_ms: number;
+  stop_latency_target_attainment_pct: number;
   latency_target_attainment_pct: number;
   pass_rate_pct: number;
   grounded_answer_count: number;
@@ -76,3 +80,10 @@ export const getSessions = () =>
 
 export const getAggregateEvidence = () =>
   fetch("/api/evidence/aggregate").then((response) => json<AggregateEvidence>(response));
+
+export const recordStopLatency = (sessionId: string, latencyMs: number) =>
+  fetch(`/api/sessions/${sessionId}/metrics/stop-latency`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ latency_ms: latencyMs }),
+  }).then((response) => json<{ recorded: boolean; latency_ms: number }>(response));

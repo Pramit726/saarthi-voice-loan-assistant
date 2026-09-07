@@ -81,6 +81,13 @@ class EvidenceService:
             if event.event_type == "response_released" and event.latency_ms is not None
         ]
         latencies = [float(event.latency_ms) for event in response_events]
+        stop_latency_events = [
+            event
+            for event in events
+            if event.event_type == "user_facing_stop_latency_recorded"
+            and event.latency_ms is not None
+        ]
+        stop_latencies = [float(event.latency_ms) for event in stop_latency_events]
         target_hits = 0
         for event in response_events:
             route = route_by_turn.get((event.session_id, event.turn_id))
@@ -118,6 +125,14 @@ class EvidenceService:
             if latencies
             else 0.0,
             "response_latency_p95_ms": round(_percentile(latencies, 0.95), 1),
+            "stop_latency_sample_count": len(stop_latencies),
+            "stop_latency_average_ms": round(mean(stop_latencies), 1)
+            if stop_latencies
+            else 0.0,
+            "stop_latency_p95_ms": round(_percentile(stop_latencies, 0.95), 1),
+            "stop_latency_target_attainment_pct": self._rate(
+                sum(value <= 500 for value in stop_latencies), len(stop_latencies)
+            ),
             "latency_target_attainment_pct": self._rate(
                 target_hits, len(response_events)
             ),

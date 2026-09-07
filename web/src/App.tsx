@@ -8,6 +8,7 @@ import {
   getEvents,
   getSessions,
   getToken,
+  recordStopLatency,
   sendControl,
   type AggregateEvidence,
   type Session,
@@ -169,11 +170,22 @@ function BorrowerView() {
 
   const control = async (command: string) => {
     if (!session) return;
+    const stopStartedAt = command === "stop" ? performance.now() : null;
     if (command === "stop") {
       room?.remoteParticipants.forEach((participant) =>
-        participant.audioTrackPublications.forEach((publication) => publication.audioTrack?.detach().forEach((node) => node.remove())),
+        participant.audioTrackPublications.forEach((publication) => publication.audioTrack?.detach().forEach((node) => {
+          if (node instanceof HTMLMediaElement) {
+            node.pause();
+            node.srcObject = null;
+          }
+          node.remove();
+        })),
       );
       setVoiceState("listening");
+      if (stopStartedAt !== null) {
+        const stopLatencyMs = Math.max(0, Math.round(performance.now() - stopStartedAt));
+        void recordStopLatency(session.session_id, stopLatencyMs).catch(() => undefined);
+      }
     }
     if (command === "pause") setVoiceState("paused");
     if (command === "resume") setVoiceState("listening");
@@ -363,6 +375,7 @@ const EVENT_TITLES: Record<string, string> = {
   speech_delivered: "Speech delivered",
   speech_interrupted: "Speech interrupted",
   speech_recovery_started: "Speech recovery started",
+  user_facing_stop_latency_recorded: "User-facing stop latency recorded",
 };
 
 function eventTitle(event: EvidenceEvent) {
@@ -388,6 +401,7 @@ function eventDetail(event: EvidenceEvent) {
   if (event.event_type === "response_blocked") return "The response guard stopped this output from being spoken.";
   if (event.event_type === "speech_interrupted") return "Playback stopped after detected user speech. A finalized new turn cancels it; otherwise recovery may retry once.";
   if (event.event_type === "speech_recovery_started") return "No finalized user turn followed the interruption, so the current safe response is being replayed once.";
+  if (event.event_type === "user_facing_stop_latency_recorded") return `Browser click-to-audio-detach latency: ${Math.round(event.latency_ms ?? 0)} ms.`;
   if (event.event_type === "speech_delivered") return "The generated response completed playback.";
   if (event.event_type === "final_transcript_accepted") return "A final speech-recognition result entered the guarded backend.";
   if (event.event_type === "session_created") return "A new draft-only application and conversation state were created.";
@@ -447,7 +461,7 @@ function Dashboard({ initialSessionId }: { initialSessionId: string | null }) {
     window.history.replaceState({}, "", url);
   };
   const grounded = events.filter((event) => event.event_type === "grounding_decided");
-  const controls = events.filter((event) => /speech|stale|control/.test(event.event_type));
+  const controls = events.filter((event) => /speech|stale|control|stop_latency/.test(event.event_type));
   const answeredFields = Object.keys(draft?.fields ?? {}).length;
   const fieldTotal = 8;
   const pipelineData = PIPELINE_EVIDENCE.map(([label, eventType]) => ({
@@ -458,6 +472,7 @@ function Dashboard({ initialSessionId }: { initialSessionId: string | null }) {
     { label: "Grounded answers", value: grounded.length },
     { label: "Interruptions", value: events.filter((event) => event.event_type === "speech_interrupted").length },
     { label: "Automatic recoveries", value: events.filter((event) => event.event_type === "speech_recovery_started").length },
+    { label: "Stop measurements", value: events.filter((event) => event.event_type === "user_facing_stop_latency_recorded").length },
     { label: "Blocked responses", value: events.filter((event) => event.event_type === "response_blocked").length },
     { label: "Stale work blocked", value: events.filter((event) => /stale/.test(event.event_type)).length },
   ];
@@ -469,6 +484,8 @@ function Dashboard({ initialSessionId }: { initialSessionId: string | null }) {
   ];
   const hardFailures = acceptance?.hard_gate_failures?.length ?? 0;
   const turns = new Set(events.map((event) => event.turn_id).filter(Boolean)).size;
+  const stopLatencySamples = events.filter((event) => event.event_type === "user_facing_stop_latency_recorded" && typeof event.latency_ms === "number").map((event) => event.latency_ms as number).sort((a, b) => a - b);
+  const stopLatencyP95 = stopLatencySamples.length ? Math.round(stopLatencySamples[Math.max(0, Math.ceil(stopLatencySamples.length * 0.95) - 1)]) : null;
   return <main className="shell dashboard">
     <header className="hero dashboard-hero"><div><span className="eyebrow">OBSERVABILITY AND ACCEPTANCE</span><h1>Saarthi evidence dashboard</h1><p>Current-session evidence with selectable history and aggregate performance.</p></div><div className={`verdict ${acceptance?.verdict ?? "pending"}`}>{acceptance?.verdict ?? "pending"}</div></header>
     <section className="session-toolbar" aria-label="Evidence session selection">
@@ -489,12 +506,13 @@ function Dashboard({ initialSessionId }: { initialSessionId: string | null }) {
         <article><span>Interpreter success</span><strong>{aggregate?.interpreter_success_rate_pct ?? 0}%</strong></article>
         <article><span>Decision latency p50</span><strong>{Math.round(aggregate?.response_latency_p50_ms ?? 0)}<small> ms</small></strong></article>
         <article><span>Decision latency p95</span><strong>{Math.round(aggregate?.response_latency_p95_ms ?? 0)}<small> ms</small></strong></article>
+        <article><span>Stop latency p95</span><strong>{aggregate?.stop_latency_sample_count ? Math.round(aggregate.stop_latency_p95_ms) : "—"}{aggregate?.stop_latency_sample_count ? <small> ms</small> : null}</strong></article>
         <article><span>Latency target met</span><strong>{aggregate?.latency_target_attainment_pct ?? 0}%</strong></article>
         <article className={(aggregate?.hard_failure_count ?? 0) > 0 ? "metric-alert" : ""}><span>Hard failures</span><strong>{aggregate?.hard_failure_count ?? 0}</strong></article>
       </div>
     </section>
     <div className="scope-divider"><span>Selected session</span><strong>{sessionId ? sessionId.slice(-8) : "—"}</strong></div>
-    <div className="metric-row"><article><span>Draft revision</span><strong>{draft?.revision ?? 0}</strong></article><article><span>Trace events</span><strong>{events.length}</strong></article><article><span>Grounded answers</span><strong>{grounded.length}</strong></article><article><span>Control evidence</span><strong>{controls.length}</strong></article></div>
+    <div className="metric-row"><article><span>Draft revision</span><strong>{draft?.revision ?? 0}</strong></article><article><span>Trace events</span><strong>{events.length}</strong></article><article><span>Grounded answers</span><strong>{grounded.length}</strong></article><article><span>Control evidence</span><strong>{controls.length}</strong></article><article><span>Selected stop p95</span><strong>{stopLatencyP95 ?? "—"}{stopLatencyP95 !== null ? <small> ms</small> : null}</strong></article></div>
     <section className="card progress-card">
       <div className="section-title"><h2>Draft completion</h2><strong>{answeredFields} of {fieldTotal} fields</strong></div>
       <div className="progress-track" role="progressbar" aria-label="Draft fields completed" aria-valuenow={answeredFields} aria-valuemin={0} aria-valuemax={fieldTotal}><span style={{ width: `${(answeredFields / fieldTotal) * 100}%` }} /></div>

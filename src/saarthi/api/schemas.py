@@ -49,3 +49,7 @@ class DeliveryUpdate(BaseModel):
     segment_id: str
     status: DeliveryStatus
     heard_character_count: int = Field(default=0, ge=0)
+
+
+class StopLatencyRequest(BaseModel):
+    latency_ms: float = Field(ge=0, le=60_000)
