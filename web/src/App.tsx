@@ -38,12 +38,75 @@ const FIELD_LABELS: Record<string, string> = {
   contact_preference: "Contact preference",
 };
 
+type VoiceState = "idle" | "connecting" | "listening" | "speaking" | "paused";
+
+const VOICE_STATE_COPY: Record<VoiceState, { label: string; title: string; detail: string }> = {
+  idle: {
+    label: "Standby",
+    title: "Ready when you are",
+    detail: "Start a private voice draft and Saarthi will guide one question at a time.",
+  },
+  connecting: {
+    label: "Connecting",
+    title: "Setting up your session",
+    detail: "Creating a private room for this draft.",
+  },
+  listening: {
+    label: "Listening",
+    title: "I’m listening",
+    detail: "Speak naturally. You can ask a question or correct an earlier answer.",
+  },
+  speaking: {
+    label: "Speaking",
+    title: "Saarthi is speaking",
+    detail: "You can interrupt or use a control whenever you need to.",
+  },
+  paused: {
+    label: "Paused",
+    title: "Your draft is paused",
+    detail: "Resume when you are ready. Your confirmed answers remain safe.",
+  },
+};
+
+function VoiceMark({ state }: { state: VoiceState }) {
+  if (state === "speaking") {
+    return (
+      <svg viewBox="0 0 64 64" aria-hidden="true" className="voice-mark voice-mark-speaking">
+        <path d="M14 31h6M24 23v18M34 16v32M44 23v18M54 29v6" />
+      </svg>
+    );
+  }
+  if (state === "listening") {
+    return (
+      <svg viewBox="0 0 64 64" aria-hidden="true" className="voice-mark voice-mark-listening">
+        <rect x="24" y="10" width="16" height="31" rx="8" />
+        <path d="M17 30a15 15 0 0 0 30 0M32 45v9M23 54h18" />
+      </svg>
+    );
+  }
+  if (state === "paused") {
+    return (
+      <svg viewBox="0 0 64 64" aria-hidden="true" className="voice-mark voice-mark-paused">
+        <path d="M24 18v28M40 18v28" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true" className="voice-mark voice-mark-idle">
+      <path d="M32 8l3.5 16.5L52 28l-16.5 3.5L32 48l-3.5-16.5L12 28l16.5-3.5L32 8Z" />
+      <path d="M50 43l1.7 7.3L59 52l-7.3 1.7L50 61l-1.7-7.3L41 52l7.3-1.7L50 43Z" />
+    </svg>
+  );
+}
+
 function BorrowerView() {
   const [session, setSession] = useState<Session | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
   const [status, setStatus] = useState("Ready to begin");
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [transcript, setTranscript] = useState<string[]>([]);
   const [draft, setDraft] = useState<any>(null);
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -52,6 +115,7 @@ function BorrowerView() {
   }, [session]);
 
   const start = async () => {
+    setVoiceState("connecting");
     setStatus("Creating a private demonstration session...");
     const created = await createSession();
     const credentials = await getToken(created.session_id);
@@ -64,6 +128,20 @@ function BorrowerView() {
         .trim();
       if (text) setTranscript((items) => [...items.slice(-7), `${participant?.identity ?? "Voice"}: ${text}`]);
     });
+    nextRoom.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+      const assistantIsSpeaking = speakers.some((participant) => participant.identity !== nextRoom.localParticipant.identity);
+      if (assistantIsSpeaking) {
+        setVoiceState("speaking");
+        setStatus("Saarthi is speaking");
+      } else {
+        setVoiceState("listening");
+        setStatus("Listening - speak naturally or use a control");
+      }
+    });
+    nextRoom.on(RoomEvent.Disconnected, () => {
+      setVoiceState("idle");
+      setStatus("Voice session ended");
+    });
     nextRoom.on(RoomEvent.TrackSubscribed, (track) => {
       if (track.kind === "audio") document.body.appendChild(track.attach());
     });
@@ -71,6 +149,7 @@ function BorrowerView() {
     await nextRoom.localParticipant.setMicrophoneEnabled(true);
     setSession(created);
     setRoom(nextRoom);
+    setVoiceState("listening");
     setStatus("Listening - speak naturally or use a control");
   };
 
@@ -80,7 +159,10 @@ function BorrowerView() {
       room?.remoteParticipants.forEach((participant) =>
         participant.audioTrackPublications.forEach((publication) => publication.audioTrack?.detach().forEach((node) => node.remove())),
       );
+      setVoiceState("listening");
     }
+    if (command === "pause") setVoiceState("paused");
+    if (command === "resume") setVoiceState("listening");
     if (room) {
       const packet = JSON.stringify({ type: "control", session_id: session.session_id, command });
       await room.localParticipant.publishData(new TextEncoder().encode(packet), {
@@ -94,24 +176,39 @@ function BorrowerView() {
   };
 
   const fields = draft?.fields ?? {};
+  const answeredFields = Object.keys(fields).length;
+  const draftComplete = answeredFields === Object.keys(FIELD_LABELS).length;
+  const copy = VOICE_STATE_COPY[voiceState];
   return (
     <main className="shell">
-      <header className="hero">
-        <div><span className="eyebrow">VOICE-FIRST · SYNTHETIC DEMONSTRATION</span><h1>Saarthi</h1><p>A doubt-aware personal-loan draft assistant that keeps you in control.</p></div>
-        <div className="draft-badge">Draft only<br /><small>Never submitted</small></div>
+      <header className="topbar">
+        <a className="brand" href="/" aria-label="Saarthi home"><span className="brand-mark"><VoiceMark state="idle" /></span><span><strong>Saarthi</strong><small>Voice-first loan guidance</small></span></a>
+        <div className="topbar-meta"><span className="provider-pill"><i /> Rime voice · guarded AI</span><span className="draft-badge"><b>{submitted ? "Demo submitted" : "Draft only"}</b><small>{submitted ? "No lender request sent" : "Never submitted by AI"}</small></span></div>
       </header>
+
+      <section className="hero">
+        <div><span className="eyebrow">PRIVATE APPLICATION COMPANION</span><h1>A calmer way to<br /><em>get loan-ready.</em></h1><p>Ask questions, make corrections, and review every answer before you decide.</p></div>
+        <div className="hero-note"><span className="hero-note-icon">✦</span><div><strong>You are in control</strong><small>Saarthi can explain and prepare a draft. Only you can submit it.</small></div></div>
+      </section>
 
       <section className="notice">This prototype uses fictional product terms and non-sensitive answers. Never speak PAN, Aadhaar, OTP, bank details, a phone number, or an email address.</section>
 
       <div className="grid">
         <section className="card voice-card">
-          <div className="orb" data-active={Boolean(room)}><span /></div>
-          <h2>{status}</h2>
+          <div className="voice-stage">
+            <div className="voice-stage-top"><span className={`state-pill state-${voiceState}`}><i /> {copy.label}</span><span className="stage-caption">{room ? "Private voice session" : "Voice guide"}</span></div>
+            <div className={`orb orb-${voiceState}`} data-active={Boolean(room)} data-state={voiceState}><div className="orb-halo orb-halo-one" /><div className="orb-halo orb-halo-two" /><div className="orb-core"><VoiceMark state={voiceState} /></div></div>
+            <h2>{copy.title}</h2>
+            <p className="voice-detail">{voiceState === "idle" ? copy.detail : status}</p>
+            <p className="voice-support">{copy.detail}</p>
+          </div>
           {!session ? <button className="primary" onClick={start}>Start voice draft</button> : (
-            <div className="controls">
-              {["pause", "resume", "repeat", "go_back", "show_summary", "stop", "cancel"].map((item) =>
-                <button key={item} onClick={() => control(item)} className={item === "cancel" ? "danger" : "secondary"}>{item.replace("_", " ")}</button>
-              )}
+            <div className="control-dock" aria-label="Voice controls">
+              <button onClick={() => control("pause")} className="dock-button"><span>Ⅱ</span> Pause</button>
+              <button onClick={() => control("repeat")} className="dock-button"><span>↻</span> Repeat</button>
+              <button onClick={() => control("go_back")} className="dock-button"><span>←</span> Go back</button>
+              <button onClick={() => control("stop")} className="dock-button dock-stop"><span>■</span> Stop</button>
+              <button onClick={() => control("cancel")} className="dock-button dock-cancel"><span>×</span> Cancel</button>
             </div>
           )}
           <div className="transcript" aria-live="polite">
@@ -120,11 +217,16 @@ function BorrowerView() {
         </section>
 
         <section className="card">
-          <div className="section-title"><h2>Application draft</h2><span>revision {draft?.revision ?? 0}</span></div>
+          <div className="section-title"><div><span className="eyebrow">YOUR INFORMATION</span><h2>Application draft</h2></div><span className="revision-chip">Revision {draft?.revision ?? 0}</span></div>
+          <div className="draft-progress"><span><b>{answeredFields}</b> of {Object.keys(FIELD_LABELS).length} answered</span><div><i style={{ width: `${(answeredFields / Object.keys(FIELD_LABELS).length) * 100}%` }} /></div></div>
           <div className="fields">
             {Object.entries(FIELD_LABELS).map(([key, label]) => (
               <div className="field" key={key}><span>{label}</span><strong>{fields[key]?.typed_value?.toString() ?? "Not answered"}</strong></div>
             ))}
+          </div>
+          <div className={`submit-panel ${draftComplete ? "is-ready" : ""} ${submitted ? "is-submitted" : ""}`}>
+            <div><strong>{submitted ? "Application marked submitted" : draftComplete ? "Ready for your review" : "Complete the draft to continue"}</strong><span>{submitted ? "This is a demo status only. No external lender request was made." : draftComplete ? "Check your answers, then submit when you are ready." : `${Object.keys(FIELD_LABELS).length - answeredFields} answers still needed before the button is enabled.`}</span></div>
+            <button className="submit-button" disabled={!draftComplete || submitted} onClick={() => { setSubmitted(true); setStatus("Application marked submitted for this demo"); }}>{submitted ? "Submitted ✓" : "Submit application"}</button>
           </div>
           {session && <a className="dashboard-link" href={`/?view=dashboard&session=${session.session_id}`}>Open evidence dashboard →</a>}
         </section>
