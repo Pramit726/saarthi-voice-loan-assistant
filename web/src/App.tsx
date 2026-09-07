@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Room, RoomEvent } from "livekit-client";
 import {
   createSession,
@@ -120,6 +120,7 @@ function BorrowerView() {
   const [submitted, setSubmitted] = useState(false);
   const [helpRequested, setHelpRequested] = useState(false);
   const [lastStopLatency, setLastStopLatency] = useState<number | null>(null);
+  const audioElements = useRef<Set<HTMLMediaElement>>(new Set());
 
   useEffect(() => {
     if (!session) return;
@@ -146,6 +147,9 @@ function BorrowerView() {
     nextRoom.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
       const assistantIsSpeaking = speakers.some((participant) => participant.identity !== nextRoom.localParticipant.identity);
       if (assistantIsSpeaking) {
+        audioElements.current.forEach((element) => {
+          if (element.paused) void element.play().catch(() => undefined);
+        });
         setVoiceState("speaking");
         setStatus("Saarthi is speaking");
       } else {
@@ -154,12 +158,25 @@ function BorrowerView() {
       }
     });
     nextRoom.on(RoomEvent.Disconnected, () => {
+      audioElements.current.forEach((element) => {
+        element.pause();
+        element.remove();
+      });
+      audioElements.current.clear();
       setRoom((current) => current === nextRoom ? null : current);
       setVoiceState("idle");
       setStatus((current) => current.startsWith("Application marked submitted") ? current : "Voice session ended");
     });
     nextRoom.on(RoomEvent.TrackSubscribed, (track) => {
-      if (track.kind === "audio") document.body.appendChild(track.attach());
+      if (track.kind === "audio") {
+        const element = track.attach();
+        element.autoplay = true;
+        element.setAttribute("playsinline", "true");
+        element.volume = 1;
+        document.body.appendChild(element);
+        audioElements.current.add(element);
+        void element.play().catch(() => undefined);
+      }
     });
     await nextRoom.connect(credentials.url, credentials.token);
     await nextRoom.localParticipant.setMicrophoneEnabled(true);
@@ -175,15 +192,10 @@ function BorrowerView() {
     let recordedStopLatency: number | null = null;
     let stopRecordingError = false;
     if (command === "stop") {
-      room?.remoteParticipants.forEach((participant) =>
-        participant.audioTrackPublications.forEach((publication) => publication.audioTrack?.detach().forEach((node) => {
-          if (node instanceof HTMLMediaElement) {
-            node.pause();
-            node.srcObject = null;
-          }
-          node.remove();
-        })),
-      );
+      // Pause the live audio element, but keep it attached. Detaching it here
+      // prevents later assistant turns from becoming audible because
+      // TrackSubscribed is not emitted again for the same publication.
+      audioElements.current.forEach((element) => element.pause());
       setVoiceState("listening");
       if (stopStartedAt !== null) {
         const stopLatencyMs = Math.max(0, Math.round(performance.now() - stopStartedAt));
