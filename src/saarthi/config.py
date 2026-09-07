@@ -58,10 +58,10 @@ class Settings(BaseSettings):
     gemini_timeout_seconds: float = 12.0
 
     rime_api_key: SecretStr = SecretStr("")
-    # Coda is the current Rime conversational model. Nadi is listed for
-    # Hindi; Coda's English catalog uses a separate English speaker.
+    # Coda is the current Rime conversational model. The configured Rime
+    # account accepts the Nadi/Coda pairing for both selected languages.
     rime_model: str = "coda"
-    rime_english_speaker: str = "astra"
+    rime_english_speaker: str = "nadi"
     rime_hindi_speaker: str = "nadi"
     # Rime's newer models use speedAlpha values below 1.0 for a slightly
     # slower delivery. This is passed through the websocket plugin.

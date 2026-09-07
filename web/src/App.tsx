@@ -42,7 +42,7 @@ type VoiceState = "idle" | "connecting" | "listening" | "speaking" | "paused";
 type VoiceLanguage = "en-IN" | "hi-IN";
 
 const LANGUAGE_OPTIONS: Array<{ code: VoiceLanguage; label: string; sublabel: string; voice: string }> = [
-  { code: "en-IN", label: "English", sublabel: "Indian English", voice: "Coda · Astra" },
+  { code: "en-IN", label: "English", sublabel: "Indian English", voice: "Coda · Nadi" },
   { code: "hi-IN", label: "हिन्दी", sublabel: "Hindi voice", voice: "Coda · Nadi" },
 ];
 
