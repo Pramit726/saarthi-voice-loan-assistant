@@ -8,6 +8,7 @@ from saarthi.api.schemas import (
     ControlRequest,
     DeliveryUpdate,
     SessionCreateResponse,
+    SessionCreateRequest,
     TextTurnRequest,
     TokenRequest,
     TokenResponse,
@@ -42,9 +43,12 @@ async def health(request: Request) -> dict:
 
 
 @router.post("/sessions", response_model=SessionCreateResponse, status_code=201)
-async def create_session(request: Request) -> SessionCreateResponse:
+async def create_session(
+    request: Request, payload: SessionCreateRequest | None = None
+) -> SessionCreateResponse:
     runtime = runtime_from(request)
-    draft, state = await runtime.sessions.create()
+    language = payload.language if payload else "en-IN"
+    draft, state = await runtime.sessions.create(language=language)
     room_name = f"saarthi-{state.session_id}"
     opening = state.last_safe_prompt or FIELD_DEFINITIONS[state.pending_field].prompt
     return SessionCreateResponse(
@@ -55,6 +59,7 @@ async def create_session(request: Request) -> SessionCreateResponse:
         room_name=room_name,
         pending_field=state.pending_field.value if state.pending_field else None,
         opening_prompt=opening,
+        language=state.language,
     )
 
 

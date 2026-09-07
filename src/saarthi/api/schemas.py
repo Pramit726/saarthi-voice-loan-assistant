@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from saarthi.domain.enums import ControlCommand, DeliveryStatus
@@ -13,8 +15,13 @@ class SessionCreateResponse(BaseModel):
     room_name: str
     pending_field: str | None
     opening_prompt: str
+    language: str = "en-IN"
     synthetic: bool = True
     terminal_outcome: str = "reviewable draft only"
+
+
+class SessionCreateRequest(BaseModel):
+    language: Literal["en-IN", "hi-IN"] = "en-IN"
 
 
 class TokenRequest(BaseModel):

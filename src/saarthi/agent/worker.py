@@ -106,6 +106,13 @@ async def entrypoint(ctx: JobContext) -> None:
         await runtime.close()
         raise RuntimeError(f"No Saarthi session exists for room {room_name}.")
 
+    rime_language = "hin" if state.language.lower().startswith("hi") else "eng"
+    rime_speaker = (
+        settings.rime_hindi_speaker
+        if rime_language == "hin"
+        else settings.rime_english_speaker
+    )
+
     stt = deepgram.STTv2(
         model=settings.deepgram_model,
         numerals=settings.deepgram_numerals,
@@ -143,7 +150,9 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     tts = rime.TTS(
         model=settings.rime_model,
-        speaker=settings.rime_speaker,
+        speaker=rime_speaker,
+        lang=rime_language,
+        speed_alpha=settings.rime_speed_alpha,
         sample_rate=settings.rime_sample_rate,
         use_websocket=True,
     )

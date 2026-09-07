@@ -15,7 +15,7 @@ class SessionService:
     def __init__(self, repository: StateRepository) -> None:
         self.repository = repository
 
-    async def create(self) -> tuple[ApplicationDraft, ConversationState]:
+    async def create(self, language: str = "en-IN") -> tuple[ApplicationDraft, ConversationState]:
         session_id = new_id("session")
         application_id = new_id("application")
         participant_id = new_id("borrower")
@@ -26,6 +26,7 @@ class SessionService:
             session_id=session_id,
             application_id=application_id,
             participant_id=participant_id,
+            language=language,
             last_safe_prompt=FIELD_DEFINITIONS[FieldId.REQUESTED_AMOUNT].prompt,
         )
         await self.repository.create(draft, state)
@@ -40,7 +41,7 @@ class SessionService:
                 generation_id=state.generation_id,
                 application_revision=draft.revision,
                 state_version=state.state_version,
-                payload={"synthetic": True, "draft_only": True},
+                payload={"synthetic": True, "draft_only": True, "language": language},
             )
         )
         return draft, state

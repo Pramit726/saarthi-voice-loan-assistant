@@ -6,6 +6,7 @@ export type Session = {
   room_name: string;
   pending_field: string | null;
   opening_prompt: string;
+  language?: "en-IN" | "hi-IN";
 };
 
 export type SessionSummary = {
@@ -40,8 +41,12 @@ const json = async <T>(response: Response): Promise<T> => {
   return response.json() as Promise<T>;
 };
 
-export const createSession = () =>
-  fetch("/api/sessions", { method: "POST" }).then((response) => json<Session>(response));
+export const createSession = (language: "en-IN" | "hi-IN" = "en-IN") =>
+  fetch("/api/sessions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ language }),
+  }).then((response) => json<Session>(response));
 
 export const getToken = (sessionId: string) =>
   fetch("/api/livekit/token", {
