@@ -119,6 +119,7 @@ function BorrowerView() {
   const [draft, setDraft] = useState<any>(null);
   const [submitted, setSubmitted] = useState(false);
   const [helpRequested, setHelpRequested] = useState(false);
+  const [lastStopLatency, setLastStopLatency] = useState<number | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -171,6 +172,7 @@ function BorrowerView() {
   const control = async (command: string) => {
     if (!session) return;
     const stopStartedAt = command === "stop" ? performance.now() : null;
+    let recordedStopLatency: number | null = null;
     if (command === "stop") {
       room?.remoteParticipants.forEach((participant) =>
         participant.audioTrackPublications.forEach((publication) => publication.audioTrack?.detach().forEach((node) => {
@@ -184,7 +186,14 @@ function BorrowerView() {
       setVoiceState("listening");
       if (stopStartedAt !== null) {
         const stopLatencyMs = Math.max(0, Math.round(performance.now() - stopStartedAt));
-        void recordStopLatency(session.session_id, stopLatencyMs).catch(() => undefined);
+        try {
+          await recordStopLatency(session.session_id, stopLatencyMs);
+          recordedStopLatency = stopLatencyMs;
+          setLastStopLatency(stopLatencyMs);
+        } catch (error) {
+          console.error("Could not record user-facing stop latency", error);
+          setStatus("Playback stopped, but stop-latency recording failed");
+        }
       }
     }
     if (command === "pause") setVoiceState("paused");
@@ -198,7 +207,7 @@ function BorrowerView() {
     } else {
       await sendControl(session.session_id, command);
     }
-    setStatus(command === "cancel" ? "Draft cancelled - nothing submitted" : `${command.replace("_", " ")} requested`);
+    setStatus(command === "cancel" ? "Draft cancelled - nothing submitted" : recordedStopLatency !== null ? `Playback stopped · ${recordedStopLatency} ms recorded` : `${command.replace("_", " ")} requested`);
   };
 
   const fields = draft?.fields ?? {};
@@ -256,7 +265,7 @@ function BorrowerView() {
             <div className={`orb orb-${voiceState}`} data-active={Boolean(room)} data-state={voiceState}><div className="orb-halo orb-halo-one" /><div className="orb-halo orb-halo-two" /><div className="orb-core"><VoiceMark state={voiceState} /></div></div>
             <h2>{copy.title}</h2>
             <p className="voice-detail">{voiceState === "idle" ? copy.detail : status}</p>
-            <p className="voice-support">{copy.detail}</p>
+            <p className="voice-support">{copy.detail}{lastStopLatency !== null ? ` Last stop: ${lastStopLatency} ms.` : ""}</p>
           </div>
           {!session ? <button className="primary" onClick={start}>Start voice draft</button> : submitted ? (
             <div className="session-ended" role="status">Voice agent stopped after your submission.</div>
