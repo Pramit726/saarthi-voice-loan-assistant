@@ -173,6 +173,7 @@ function BorrowerView() {
     if (!session) return;
     const stopStartedAt = command === "stop" ? performance.now() : null;
     let recordedStopLatency: number | null = null;
+    let stopRecordingError = false;
     if (command === "stop") {
       room?.remoteParticipants.forEach((participant) =>
         participant.audioTrackPublications.forEach((publication) => publication.audioTrack?.detach().forEach((node) => {
@@ -192,7 +193,7 @@ function BorrowerView() {
           setLastStopLatency(stopLatencyMs);
         } catch (error) {
           console.error("Could not record user-facing stop latency", error);
-          setStatus("Playback stopped, but stop-latency recording failed");
+          stopRecordingError = true;
         }
       }
     }
@@ -207,7 +208,7 @@ function BorrowerView() {
     } else {
       await sendControl(session.session_id, command);
     }
-    setStatus(command === "cancel" ? "Draft cancelled - nothing submitted" : recordedStopLatency !== null ? `Playback stopped · ${recordedStopLatency} ms recorded` : `${command.replace("_", " ")} requested`);
+    setStatus(command === "cancel" ? "Draft cancelled - nothing submitted" : recordedStopLatency !== null ? `Playback stopped · ${recordedStopLatency} ms recorded` : stopRecordingError ? "Playback stopped, but stop-latency recording failed" : `${command.replace("_", " ")} requested`);
   };
 
   const fields = draft?.fields ?? {};
@@ -278,6 +279,7 @@ function BorrowerView() {
               <button onClick={() => control("cancel")} className="dock-button dock-cancel"><span>×</span> Cancel</button>
             </div>
           )}
+          {lastStopLatency !== null && <div className="stop-metric" role="status">Last user-facing stop: <strong>{lastStopLatency} ms</strong><span>click to audio detach · recorded</span></div>}
           <div className="transcript" aria-live="polite">
             <div className="transcript-heading"><span>LIVE TRANSCRIPT</span><small>{transcript.length || liveTranscript ? "Speaker-labelled conversation" : "Waiting for speech"}</small></div>
             <div className="transcript-feed">
