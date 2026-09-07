@@ -108,6 +108,16 @@ function VoiceMark({ state }: { state: VoiceState }) {
   );
 }
 
+function SaarthiLogo() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true" className="saarthi-logo">
+      <path className="saarthi-logo-bubble" d="M17 12h30a10 10 0 0 1 10 10v15a10 10 0 0 1-10 10H33l-11 8v-8h-5A10 10 0 0 1 7 37V22A10 10 0 0 1 17 12Z" />
+      <path className="saarthi-logo-wave" d="M23 29v7M32 24v17M41 29v7" />
+      <circle className="saarthi-logo-dot" cx="49" cy="18" r="3" />
+    </svg>
+  );
+}
+
 function BorrowerView() {
   const [session, setSession] = useState<Session | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
@@ -119,7 +129,6 @@ function BorrowerView() {
   const [draft, setDraft] = useState<any>(null);
   const [submitted, setSubmitted] = useState(false);
   const [helpRequested, setHelpRequested] = useState(false);
-  const [lastStopLatency, setLastStopLatency] = useState<number | null>(null);
   const audioElements = useRef<Set<HTMLMediaElement>>(new Set());
 
   useEffect(() => {
@@ -202,7 +211,6 @@ function BorrowerView() {
         try {
           await recordStopLatency(session.session_id, stopLatencyMs);
           recordedStopLatency = stopLatencyMs;
-          setLastStopLatency(stopLatencyMs);
         } catch (error) {
           console.error("Could not record user-facing stop latency", error);
           stopRecordingError = true;
@@ -249,7 +257,7 @@ function BorrowerView() {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Saarthi home"><span className="brand-mark"><VoiceMark state="idle" /></span><span><strong>Saarthi</strong><small>Voice-first loan guidance</small></span></a>
+        <a className="brand" href="/" aria-label="Saarthi home"><span className="brand-mark"><SaarthiLogo /></span><span><strong>Saarthi</strong><small>Voice-first loan guidance</small></span></a>
         <div className="topbar-meta"><span className="provider-pill"><i /> Rime voice · guarded AI</span><span className="draft-badge"><b>{submitted ? "Demo submitted" : "Draft only"}</b><small>{submitted ? "No lender request sent" : "Never submitted by AI"}</small></span></div>
       </header>
 
@@ -278,7 +286,7 @@ function BorrowerView() {
             <div className={`orb orb-${voiceState}`} data-active={Boolean(room)} data-state={voiceState}><div className="orb-halo orb-halo-one" /><div className="orb-halo orb-halo-two" /><div className="orb-core"><VoiceMark state={voiceState} /></div></div>
             <h2>{copy.title}</h2>
             <p className="voice-detail">{voiceState === "idle" ? copy.detail : status}</p>
-            <p className="voice-support">{copy.detail}{lastStopLatency !== null ? ` Last stop: ${lastStopLatency} ms.` : ""}</p>
+            <p className="voice-support">{copy.detail}</p>
           </div>
           {!session ? <button className="primary" onClick={start}>Start voice draft</button> : submitted ? (
             <div className="session-ended" role="status">Voice agent stopped after your submission.</div>
@@ -291,7 +299,6 @@ function BorrowerView() {
               <button onClick={() => control("cancel")} className="dock-button dock-cancel"><span>×</span> Cancel</button>
             </div>
           )}
-          {lastStopLatency !== null && <div className="stop-metric" role="status">Last user-facing stop: <strong>{lastStopLatency} ms</strong><span>click to audio detach · recorded</span></div>}
           <div className="transcript" aria-live="polite">
             <div className="transcript-heading"><span>LIVE TRANSCRIPT</span><small>{transcript.length || liveTranscript ? "Speaker-labelled conversation" : "Waiting for speech"}</small></div>
             <div className="transcript-feed">
@@ -438,6 +445,38 @@ function eventTone(event: EvidenceEvent) {
   return "normal";
 }
 
+function AcceptanceEvidenceTable({
+  stopLatencyP95,
+  sampleCount,
+}: {
+  stopLatencyP95: number | null;
+  sampleCount: number;
+}) {
+  const measured = stopLatencyP95 !== null;
+  const passed = measured && stopLatencyP95 <= 500;
+  return (
+    <section className="card acceptance-table-card">
+      <div className="section-title">
+        <div><span className="eyebrow">ACCEPTANCE EVIDENCE</span><h2>Measured voice controls</h2></div>
+        <span className="table-note">Selected session</span>
+      </div>
+      <div className="table-wrap">
+        <table className="acceptance-table">
+          <thead><tr><th>Metric</th><th>Target</th><th>Observed</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>User-facing stop latency</td>
+              <td>p95 ≤ 500 ms</td>
+              <td>{measured ? `${stopLatencyP95} ms · ${sampleCount} sample${sampleCount === 1 ? "" : "s"}` : "Not recorded"}</td>
+              <td><span className={`evidence-status ${!measured ? "pending" : passed ? "pass" : "fail"}`}>{!measured ? "Inconclusive" : passed ? "Pass" : "Miss"}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function Dashboard({ initialSessionId }: { initialSessionId: string | null }) {
   const [sessionId, setSessionId] = useState(initialSessionId ?? "");
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -536,6 +575,7 @@ function Dashboard({ initialSessionId }: { initialSessionId: string | null }) {
     </section>
     <div className="scope-divider"><span>Selected session</span><strong>{sessionId ? sessionId.slice(-8) : "—"}</strong></div>
     <div className="metric-row"><article><span>Draft revision</span><strong>{draft?.revision ?? 0}</strong></article><article><span>Trace events</span><strong>{events.length}</strong></article><article><span>Grounded answers</span><strong>{grounded.length}</strong></article><article><span>Control evidence</span><strong>{controls.length}</strong></article><article><span>Selected stop p95</span><strong>{stopLatencyP95 ?? "—"}{stopLatencyP95 !== null ? <small> ms</small> : null}</strong></article></div>
+    <AcceptanceEvidenceTable stopLatencyP95={stopLatencyP95} sampleCount={stopLatencySamples.length} />
     <section className="card progress-card">
       <div className="section-title"><h2>Draft completion</h2><strong>{answeredFields} of {fieldTotal} fields</strong></div>
       <div className="progress-track" role="progressbar" aria-label="Draft fields completed" aria-valuenow={answeredFields} aria-valuemin={0} aria-valuemax={fieldTotal}><span style={{ width: `${(answeredFields / fieldTotal) * 100}%` }} /></div>
