@@ -39,6 +39,7 @@ CONTROL_COMMANDS = {
     "go back",
     "show summary",
     "cancel",
+    "submit",
 }
 
 
@@ -308,11 +309,21 @@ async def entrypoint(ctx: JobContext) -> None:
                 )
             )
 
+    async def shutdown_after_submission() -> None:
+        """End the voice agent after the borrower submits the demo draft."""
+
+        active.interrupt()
+        voice_session.shutdown(drain=False)
+        ctx.shutdown("borrower submitted the draft")
+
     def queue_control(command: str) -> None:
         """Run browser controls through the same guarded path as voice controls."""
 
         if command not in CONTROL_COMMANDS:
             logger.warning("ignoring unsupported control command: %s", command)
+            return
+        if command == "submit":
+            asyncio.create_task(shutdown_after_submission())
             return
         active.interrupt()
         task = asyncio.create_task(process_final_turn(command))

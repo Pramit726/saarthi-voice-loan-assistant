@@ -152,8 +152,9 @@ function BorrowerView() {
       }
     });
     nextRoom.on(RoomEvent.Disconnected, () => {
+      setRoom((current) => current === nextRoom ? null : current);
       setVoiceState("idle");
-      setStatus("Voice session ended");
+      setStatus((current) => current.startsWith("Application marked submitted") ? current : "Voice session ended");
     });
     nextRoom.on(RoomEvent.TrackSubscribed, (track) => {
       if (track.kind === "audio") document.body.appendChild(track.attach());
@@ -196,6 +197,21 @@ function BorrowerView() {
     setHelpRequested(true);
     setStatus("Human-help request recorded for this demo");
   };
+  const submitApplication = async () => {
+    if (!draftComplete || submitted) return;
+    setSubmitted(true);
+    if (room) {
+      const packet = JSON.stringify({ type: "control", session_id: session?.session_id, command: "submit" });
+      await room.localParticipant.publishData(new TextEncoder().encode(packet), {
+        reliable: true,
+        topic: "saarthi-control",
+      });
+      room.disconnect();
+      setRoom(null);
+    }
+    setVoiceState("idle");
+    setStatus("Application marked submitted for this demo; voice agent stopped");
+  };
   return (
     <main className="shell">
       <header className="topbar">
@@ -230,7 +246,9 @@ function BorrowerView() {
             <p className="voice-detail">{voiceState === "idle" ? copy.detail : status}</p>
             <p className="voice-support">{copy.detail}</p>
           </div>
-          {!session ? <button className="primary" onClick={start}>Start voice draft</button> : (
+          {!session ? <button className="primary" onClick={start}>Start voice draft</button> : submitted ? (
+            <div className="session-ended" role="status">Voice agent stopped after your submission.</div>
+          ) : (
             <div className="control-dock" aria-label="Voice controls">
               <button onClick={() => control("pause")} className="dock-button"><span>Ⅱ</span> Pause</button>
               <button onClick={() => control("repeat")} className="dock-button"><span>↻</span> Repeat</button>
@@ -264,7 +282,7 @@ function BorrowerView() {
           </div>
           <div className={`submit-panel ${draftComplete ? "is-ready" : ""} ${submitted ? "is-submitted" : ""}`}>
             <div><strong>{submitted ? "Application marked submitted" : draftComplete ? "Ready for your review" : "Complete the draft to continue"}</strong><span>{submitted ? "This is a demo status only. No external lender request was made." : draftComplete ? "Check your answers, then submit when you are ready." : `${Object.keys(FIELD_LABELS).length - answeredFields} answers still needed before the button is enabled.`}</span></div>
-            <button className="submit-button" disabled={!draftComplete || submitted} onClick={() => { setSubmitted(true); setStatus("Application marked submitted for this demo"); }}>{submitted ? "Submitted ✓" : "Submit application"}</button>
+            <button className="submit-button" disabled={!draftComplete || submitted} onClick={submitApplication}>{submitted ? "Submitted ✓" : "Submit application"}</button>
           </div>
           {session && <a className="dashboard-link" href={`/?view=dashboard&session=${session.session_id}`}>Open evidence dashboard →</a>}
         </section>
