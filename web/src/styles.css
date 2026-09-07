@@ -23,8 +23,20 @@ h2 { margin: 0 0 18px; color: #17365d; }
 .secondary { background: #edf3f8; color: #17365d; }
 .danger { background: #fff0ed; color: #a43f32; }
 .controls { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
-.transcript { min-height: 160px; margin-top: 24px; padding: 18px; border-radius: 16px; text-align: left; background: #f6f8fa; color: #54667a; overflow: auto; }
-.transcript p { margin: 0 0 9px; }
+.transcript { min-height: 190px; margin-top: 24px; padding: 15px; border-radius: 16px; text-align: left; background: #f6f8fa; color: #54667a; overflow: auto; }
+.transcript-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 11px; border-bottom: 1px solid #dfe8ef; color: #17365d; font-size: 10px; font-weight: 850; letter-spacing: .08em; }
+.transcript-heading small { color: #8391a0; font-size: 10px; font-weight: 650; letter-spacing: 0; }
+.transcript-feed { display: grid; gap: 9px; padding-top: 12px; }
+.transcript-line { max-width: 88%; padding: 9px 11px; border: 1px solid #dbe5ed; border-radius: 12px; background: white; }
+.transcript-line span { display: block; margin-bottom: 3px; color: #147d80; font-size: 10px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
+.transcript-line p { margin: 0; color: #435971; font-size: 12px; line-height: 1.45; }
+.transcript-user { justify-self: end; border-color: #cde4e1; background: #eff9f6; }
+.transcript-user span { color: #147d80; text-align: right; }
+.transcript-assistant { justify-self: start; border-color: #dbe5ed; background: white; }
+.transcript-assistant span { color: #526980; }
+.transcript-live { border-style: dashed; opacity: .8; }
+.transcript-live p::after { content: " …"; color: #147d80; }
+.transcript-empty { margin: 18px 0 4px; color: #8391a0; font-size: 12px; }
 .support-panel { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 14px; padding: 13px 14px; border: 1px solid #dfe8ef; border-radius: 15px; background: #fbfcfd; text-align: left; }
 .support-panel strong, .support-panel span { display: block; }
 .support-panel strong { color: #17365d; font-size: 12px; }

@@ -40,6 +40,8 @@ const FIELD_LABELS: Record<string, string> = {
 
 type VoiceState = "idle" | "connecting" | "listening" | "speaking" | "paused";
 type VoiceLanguage = "en-IN" | "hi-IN";
+type TranscriptSpeaker = "You" | "Saarthi";
+type TranscriptLine = { id: string; speaker: TranscriptSpeaker; text: string };
 
 const LANGUAGE_OPTIONS: Array<{ code: VoiceLanguage; label: string; sublabel: string; voice: string }> = [
   { code: "en-IN", label: "English", sublabel: "Indian English", voice: "Coda · Nadi" },
@@ -111,7 +113,8 @@ function BorrowerView() {
   const [status, setStatus] = useState("Ready to begin");
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [language, setLanguage] = useState<VoiceLanguage>("en-IN");
-  const [transcript, setTranscript] = useState<string[]>([]);
+  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
+  const [liveTranscript, setLiveTranscript] = useState<TranscriptLine | null>(null);
   const [draft, setDraft] = useState<any>(null);
   const [submitted, setSubmitted] = useState(false);
   const [helpRequested, setHelpRequested] = useState(false);
@@ -129,12 +132,14 @@ function BorrowerView() {
     const credentials = await getToken(created.session_id);
     const nextRoom = new Room({ adaptiveStream: true, dynacast: true });
     nextRoom.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
-      const text = segments
-        .filter((segment) => segment.final)
-        .map((segment) => segment.text)
-        .join(" ")
-        .trim();
-      if (text) setTranscript((items) => [...items.slice(-7), `${participant?.identity ?? "Voice"}: ${text}`]);
+      const speaker: TranscriptSpeaker = participant?.isLocal ? "You" : "Saarthi";
+      const interimText = segments.filter((segment) => !segment.final).map((segment) => segment.text).join(" ").trim();
+      const finalText = segments.filter((segment) => segment.final).map((segment) => segment.text).join(" ").trim();
+      if (interimText) setLiveTranscript({ id: `live-${Date.now()}`, speaker, text: interimText });
+      if (finalText) {
+        setTranscript((items) => [...items.slice(-7), { id: `${speaker}-${Date.now()}`, speaker, text: finalText }]);
+        setLiveTranscript(null);
+      }
     });
     nextRoom.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
       const assistantIsSpeaking = speakers.some((participant) => participant.identity !== nextRoom.localParticipant.identity);
@@ -235,7 +240,13 @@ function BorrowerView() {
             </div>
           )}
           <div className="transcript" aria-live="polite">
-            {transcript.length ? transcript.map((line, index) => <p key={`${line}-${index}`}>{line}</p>) : <p>Your live transcript will appear here.</p>}
+            <div className="transcript-heading"><span>LIVE TRANSCRIPT</span><small>{transcript.length || liveTranscript ? "Speaker-labelled conversation" : "Waiting for speech"}</small></div>
+            <div className="transcript-feed">
+              {transcript.length || liveTranscript ? <>
+                {transcript.map((line) => <div className={`transcript-line transcript-${line.speaker === "You" ? "user" : "assistant"}`} key={line.id}><span>{line.speaker}</span><p>{line.text}</p></div>)}
+                {liveTranscript && <div className={`transcript-line transcript-live transcript-${liveTranscript.speaker === "You" ? "user" : "assistant"}`}><span>{liveTranscript.speaker} · live</span><p>{liveTranscript.text}</p></div>}
+              </> : <p className="transcript-empty">Your live conversation will appear here.</p>}
+            </div>
           </div>
           {session && <div className={`support-panel ${helpRequested ? "is-requested" : ""}`}>
             <div><strong>{helpRequested ? "Human-help request recorded" : "Need more help?"}</strong><span>{helpRequested ? "Demo ticket SUP-DEMO-001 · no personal information was submitted." : "If an answer is unclear or unsatisfactory, you can ask for human review."}</span></div>
