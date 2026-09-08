@@ -11,7 +11,7 @@ The prototype is deliberately draft-only. It does not submit an application, app
 ## Demo and submission artifacts
 
 - Live demo: [saarthi-voice-loan-assistant.vercel.app](https://saarthi-voice-loan-assistant.vercel.app/)
-- Recorded demo: `TODO - add the final 4–5 minute Drive link before submission`
+- Recorded demo: [Saarthi final demonstration](https://drive.google.com/file/d/18vE89MKZmlIuyni7mWPibXO2snnknSdI/view?usp=sharing)
 - User story: [phone_first_loan_application_user_story.md](docs/phone_first_loan_application_user_story.md)
 - Workflow figure: [figure1_doubt_aware_voice_agent_workflow_300dpi.pdf](docs/figure1_doubt_aware_voice_agent_workflow_300dpi.pdf)
 - Technical requirements: [phone_first_loan_application_technical_requirements_revised.md](docs/phone_first_loan_application_technical_requirements_revised.md)
