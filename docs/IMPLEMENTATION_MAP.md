@@ -4,9 +4,9 @@ This file maps the refined design to code without widening the product scope.
 
 | Requirement | Primary implementation | Deterministic boundary |
 |---|---|---|
-| TR-1 Off-path understanding | `services/interpreter.py`, `providers/groq.py` | The interpreter returns a typed proposal. Doubts, controls, ambiguity and mixed turns cannot authorize writes. |
+| TR-1 Off-path understanding | `services/interpreter.py`, `providers/gemini.py` | Deterministic routes handle controls and validated plain answers first. Gemini supplies a typed proposal for unresolved turns. Doubts, controls, ambiguity and mixed turns cannot authorize writes. |
 | TR-2 State consistency | `domain/state.py`, `domain/reducer.py`, `storage/` | Three independent versions, compare-and-set revision, idempotency and explicit correction confirmation. |
-| TR-3 Grounded explanation | `providers/knowledge.py`, `providers/cache.py`, `services/grounding.py` | Product/version/status filters, fact IDs, deterministic calculation route and abstention. |
+| TR-3 Grounded explanation | `providers/knowledge.py`, `providers/cache.py`, `services/grounding.py` | Product/version/status filters, fact IDs, deterministic calculation route and abstention. Groq wording is optional and disabled in the default path. |
 | TR-4 Financial speech | `services/calculator.py`, `services/renderer.py`, LiveKit Rime adapter | Speech and written output are derived from the same typed projection and value-label map. |
 | TR-5 Control and cancellation | `domain/state.py`, `services/orchestrator.py`, `agent/worker.py` | New generation first, local speech interruption, old-job cancellation and current-version checks. |
 | TR-6 Neutral draft-only behavior | `domain/policies.py`, `services/planner.py`, API surface | Deterministic release gates and an allowlist; forbidden lending actions have no route or handler. |

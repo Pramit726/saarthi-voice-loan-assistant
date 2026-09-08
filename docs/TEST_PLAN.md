@@ -1,6 +1,6 @@
 # Test plan
 
-Tests are written now but are intentionally not executed during the development-only session.
+This plan defines the repeatable checks for the submission build. During the 8 September 2026 package audit, the deterministic backend suite passed 99 tests with five live/manual tests deselected. The frontend suite passed six tests, the production build completed, and the Rime configuration preflight passed.
 
 ## Automated deterministic suite
 
@@ -17,22 +17,28 @@ Tests are written now but are intentionally not executed during the development-
 Live tests are marked `live` and skipped unless `RUN_LIVE_TESTS=1`. They consume quota and cover:
 
 - Qdrant ingestion plus product/version/status-filtered retrieval.
-- Groq strict structured interpretation.
-- Later provider checks for Deepgram streaming and Rime synthesis.
+- Gemini structured interpretation used by the production interpreter.
+- Optional Groq structured output for the non-default grounded-wording path.
+- Provider checks for Deepgram streaming and Rime synthesis where a live fixture is available.
 
 ## Manual tests
 
-Manual tests remain skipped placeholders until the evaluation session:
+These checks require a live browser, microphone, provider connection, or human listener. Their bounded development results are summarized in the MVP design document; rerun the final demo path in the deployed environment before submission:
 
 - two-listener review of financial value-label intelligibility and pacing;
 - live microphone barge-in and end-user stop latency;
 - final browser journey and dashboard visual inspection.
 
-## Commands for the later test session
+## Repeatable commands
 
 ```powershell
 uv sync --dev
 uv run pytest -m "not live and not manual"
+cd web
+npm test -- --run
+npm run build
+cd ..
+uv run saarthi-rime-preflight
 $env:RUN_LIVE_TESTS="1"
 uv run pytest -m live
 ```

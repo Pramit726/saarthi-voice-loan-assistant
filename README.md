@@ -10,14 +10,13 @@ The prototype is deliberately draft-only. It does not submit an application, app
 
 ## Demo and submission artifacts
 
-These are placeholders to be replaced before submission:
-
-- Demo: `TODO - add Drive demo link`
+- Live demo: [saarthi-voice-loan-assistant.vercel.app](https://saarthi-voice-loan-assistant.vercel.app/)
+- Recorded demo: `TODO - add the final 4–5 minute Drive link before submission`
 - User story: [phone_first_loan_application_user_story.md](docs/phone_first_loan_application_user_story.md)
 - Workflow figure: [figure1_doubt_aware_voice_agent_workflow_300dpi.pdf](docs/figure1_doubt_aware_voice_agent_workflow_300dpi.pdf)
 - Technical requirements: [phone_first_loan_application_technical_requirements_revised.md](docs/phone_first_loan_application_technical_requirements_revised.md)
 - MVP design: [phone_first_loan_mvp_design_refined_draft.pdf](docs/phone_first_loan_mvp_design_refined_draft.pdf)
-- Pitch deck: `TODO - add pitch_deck.pdf`
+- Pitch deck: supplied alongside the repository in the submission package
 - Product fact sheet: [PRODUCT_FACT_SHEET.md](docs/PRODUCT_FACT_SHEET.md) · [canonical JSON](data/product/saarthi_product_facts_v1.json)
 
 ## What the MVP proves
