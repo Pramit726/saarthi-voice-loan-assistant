@@ -14,7 +14,7 @@ These are placeholders to be replaced before submission:
 - Technical requirements: [phone_first_loan_application_technical_requirements_revised.md](docs/phone_first_loan_application_technical_requirements_revised.md)
 - MVP design: `TODO - add phone_first_loan_mvp_design_refined_draft.pdf`
 - Pitch deck: `TODO - add pitch_deck.pdf`
-- Product fact sheet: `TODO - add saarthi_product_fact_sheet.pdf`
+- Product fact sheet: [PRODUCT_FACT_SHEET.md](docs/PRODUCT_FACT_SHEET.md) · [canonical JSON](data/product/saarthi_product_facts_v1.json)
 
 ## What the MVP proves
 
