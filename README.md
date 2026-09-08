@@ -2,6 +2,10 @@
 
 Saarthi is a doubt-aware, state-consistent voice experience for a **fictional personal-loan pre-application**. It proves that a borrower can answer one field at a time, ask a contextual question, correct an earlier answer, interrupt speech, and resume without corrupting the draft.
 
+## Problem
+
+Personal-loan applications often present unfamiliar terms, amounts, fees, and conditions as a long sequence of fields. When a borrower has a doubt or wants to correct an earlier answer, a rigid form or IVR can make them lose context or abandon the process. Saarthi addresses this focused problem with a phone-first conversation that lets the borrower interrupt, clarify, correct, and safely resume the same draft. Voice is essential because the defining interaction happens while the question is being spoken—not in a separate help screen.
+
 The prototype is deliberately draft-only. It does not submit an application, approve or reject a loan, perform KYC, create a mandate, collect payment, or make a lending recommendation.
 
 ## Demo and submission artifacts
