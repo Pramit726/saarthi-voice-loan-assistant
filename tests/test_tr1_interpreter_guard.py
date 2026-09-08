@@ -160,13 +160,13 @@ async def test_valid_plain_money_answer_bypasses_the_llm(
     assert result.rationale_code == "deterministic_valid_field_answer"
 
 
-async def test_spoken_tenure_answer_bypasses_the_llm(
-    transcript_factory, conversation
-):
+async def test_spoken_tenure_answer_bypasses_the_llm(transcript_factory, conversation):
     conversation.pending_field = FieldId.PREFERRED_TENURE
     interpreter = RetrievedFewShotInterpreter(client=None)  # type: ignore[arg-type]
 
-    result = await interpreter.interpret(transcript_factory("twelve months"), conversation)
+    result = await interpreter.interpret(
+        transcript_factory("twelve months"), conversation
+    )
 
     assert result.candidate_value == 12
     assert result.explicit_write is True

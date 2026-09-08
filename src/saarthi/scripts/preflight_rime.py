@@ -6,7 +6,6 @@ import sys
 
 from saarthi.config import get_settings
 
-
 RIME_WEBSOCKET_ENDPOINT = "wss://users-ws.rime.ai"
 
 

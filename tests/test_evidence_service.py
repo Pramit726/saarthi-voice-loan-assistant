@@ -36,12 +36,8 @@ def service() -> EvidenceService:
 
 def test_aggregate_evidence_reports_cross_session_latency_and_safety():
     states = [
-        ConversationState(
-            session_id="s1", application_id="a1", participant_id="p1"
-        ),
-        ConversationState(
-            session_id="s2", application_id="a2", participant_id="p2"
-        ),
+        ConversationState(session_id="s1", application_id="a1", participant_id="p1"),
+        ConversationState(session_id="s2", application_id="a2", participant_id="p2"),
     ]
     events = [
         trace("s1", "session_created"),

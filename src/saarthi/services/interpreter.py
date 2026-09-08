@@ -205,9 +205,7 @@ class TurnInterpreter(Protocol):
 
 
 class InterpretationClient(Protocol):
-    async def interpret(
-        self, *, system: str, user: str
-    ) -> InterpretationPayload: ...
+    async def interpret(self, *, system: str, user: str) -> InterpretationPayload: ...
 
 
 def _lexical_score(left: str, right: str) -> int:

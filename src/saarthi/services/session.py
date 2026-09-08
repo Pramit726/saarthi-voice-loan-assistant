@@ -15,7 +15,9 @@ class SessionService:
     def __init__(self, repository: StateRepository) -> None:
         self.repository = repository
 
-    async def create(self, language: str = "en-IN") -> tuple[ApplicationDraft, ConversationState]:
+    async def create(
+        self, language: str = "en-IN"
+    ) -> tuple[ApplicationDraft, ConversationState]:
         session_id = new_id("session")
         application_id = new_id("application")
         participant_id = new_id("borrower")

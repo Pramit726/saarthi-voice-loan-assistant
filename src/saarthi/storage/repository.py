@@ -148,5 +148,9 @@ class InMemoryStateRepository:
 
     async def list_all_events(self) -> list[TraceEvent]:
         return deepcopy(
-            [event for session_events in self.events.values() for event in session_events]
+            [
+                event
+                for session_events in self.events.values()
+                for event in session_events
+            ]
         )
