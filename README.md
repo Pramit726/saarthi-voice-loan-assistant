@@ -9,7 +9,8 @@ The prototype is deliberately draft-only. It does not submit an application, app
 These are placeholders to be replaced before submission:
 
 - Demo: `TODO - add Drive demo link`
-- User story: `TODO - add user_story.md`
+- User story: [phone_first_loan_application_user_story.md](docs/phone_first_loan_application_user_story.md)
+- Workflow figure: [figure1_doubt_aware_voice_agent_workflow_300dpi.pdf](docs/figure1_doubt_aware_voice_agent_workflow_300dpi.pdf)
 - Technical requirements: `TODO - add technical_requirements.md`
 - MVP design: `TODO - add phone_first_loan_mvp_design_refined_draft.pdf`
 - Pitch deck: `TODO - add pitch_deck.pdf`
