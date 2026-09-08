@@ -46,11 +46,14 @@ The expected experience is observable:
 
 | Pain point | Why it matters to the user | Evidence |
 |---|---|---|
-| Loan terms such as EMI, APR, fees, and take-home income are unfamiliar. | A borrower may not know what answer is being requested or may abandon the process. | Consumer financial-literacy research reports difficulty understanding financial products and terminology [1, 2]. |
-| Long, sequential application journeys create friction. | Repeated fields and unclear next steps make completion harder, especially on a phone. | Digital-finance usability research identifies complexity and lack of understandable guidance as barriers to access [3]. |
-| A borrower may need to ask a question while a field is active. | A rigid menu or form forces the user to leave the path, lose context, or wait for a separate support channel. | Voice-interface research treats turn-taking, repair, and clarification as central interaction problems [4]. |
-| Amounts, fees, dates, and tenure must remain consistent after a correction. | An incorrect or stale summary can undermine trust and lead to an unintended decision. | Research on spoken information shows that speech rate and presentation affect comprehension of financial information [5]. |
-| Users need control before any consequential action. | A borrower should be able to review, pause, correct, or stop without pressure. | Responsible-finance guidance emphasizes transparency, informed choice, and meaningful user control [6]. |
+| Loan costs and terms can be misunderstood. | A borrower may not understand interest rates, processing fees, APR, repayment consequences, or collection practices. | An India-focused Dvara Research-CGAP convening reported these information gaps, especially for new-to-credit customers [1]. |
+| Long and complex disclosures receive limited attention. | A borrower may miss an important cost even when it appears in a multipage contract. | CGAP documented complex terms, incomplete cost disclosure, and experiments showing that the presentation of costs and key facts affects attention and borrowing decisions [2]. |
+| Discovering fees late can cause abandonment. | Unexpected processing fees, prepayment penalties, or bundled products can undermine trust during the journey. | A commercial survey of 3,614 personal-loan borrowers across six Indian cities reported that fewer than 41% felt fully informed before signing; among mid-journey abandoners, 54% cited discovery of these costs or bundled products as the principal trigger [3]. |
+| A realistic loan journey contains several linked concepts. | Amount, tenure, rate, EMI, interest, fees, disbursal, and total cost must remain understandable and consistent. | TVS Credit's published application process and Saathi product journey provide a realistic scope and vocabulary reference, not evidence of TVS-specific failure rates [4, 5]. |
+| Phone remains a meaningful borrowing channel. | Some borrowers begin the journey through a call and need support within that channel. | Home Credit India's lender-run survey of approximately 1,842 borrowers across 17 Indian cities reported that 19% initiated borrowing through telecalling in 2023 [6]. |
+| Spoken delivery can affect financial comprehension. | Dense or fast delivery can make linked amounts and conditions difficult to follow. | In a controlled study of 160 listeners hearing synthesized banking-product descriptions, faster speech reduced comprehension for native and non-native English listeners [7]. |
+
+**Evidence boundary.** These sources establish loan-term complexity, cost confusion, fee-related abandonment, a meaningful minority phone channel, and an effect of speech rate on banking-message comprehension. They do not establish how often borrowers interrupt a phone pre-application with a field-level doubt or prove that Saarthi reduces real-world abandonment. Those remain focused product hypotheses to be evaluated.
 
 ## 4. Why voice is necessary
 
@@ -58,7 +61,9 @@ Voice is central because the difficult moment is not simply entering a value. It
 
 > “What does that mean?” → explanation → “Okay, record this answer.”
 
-Voice lets the borrower interrupt, clarify, correct, and resume without moving between a form and a separate help channel. It is useful for phone-first access, hands-busy situations, and users who find dense written forms difficult to navigate.
+Voice lets the borrower interrupt, clarify, correct, and resume without moving between a form and a separate help channel. It is useful for the selected phone-first situation, which is supported as a meaningful minority channel by the Home Credit India survey [6].
+
+Spoken delivery itself must still be tested. Jones, Berry, and Stevens found lower comprehension at the faster tested speaking rate for native and non-native listeners hearing synthesized banking-product descriptions [7]. This supports deliberate pacing, pauses, number grouping, and targeted repetition, but does not prescribe one universal speaking rate.
 
 The removal test is decisive: if speech is removed, the product becomes an ordinary sequential form with a help button. The defining interaction—interrupting a question, resolving a doubt, and resuming the same draft—largely disappears. Therefore voice is not decoration; it is the product’s primary interaction medium.
 
@@ -117,6 +122,8 @@ The visual overview is available as [Figure 1: Doubt-aware voice-agent workflow]
 - Personal financial advice.
 - Claims beyond the approved product information.
 
+RBI's Key Facts Statement circular requires key loan facts to be presented in simple language understood by the borrower, including APR and the amortisation schedule, and explained before contract execution [8]. Saarthi's voice interaction therefore supports comprehension but does not replace the authoritative written disclosure.
+
 ## 9. Meaning of success
 
 The prototype succeeds when a reviewer can observe that:
@@ -162,9 +169,18 @@ The audience should be able to see one compact story: a borrower leaves the expe
 
 ## References
 
-[1] Organisation for Economic Co-operation and Development, *OECD/INFE 2023 International Survey of Adult Financial Literacy*.  
-[2] Consumer Financial Protection Bureau, consumer research on financial well-being and understanding financial products.  
-[3] World Bank, *Global Findex Database 2021* and research on digital financial inclusion.  
-[4] McTear, M., Calleijas, Z., and Griol, D., *The Conversational Interface*, Springer, 2016.  
-[5] Research on synthesized speech intelligibility, speech rate, and persuasion in banking contexts.  
-[6] Reserve Bank of India, digital lending and customer-protection guidance.
+[1] Amulya Neelam, Eric Duflos, Jayshree Venkatesan, and Sarah Stanley. *A Convening on Emerging Customer Risks in Digital Lending in India.* Dvara Research Foundation and Consultative Group to Assist the Poor, August 2021. dvararesearch.com.
+
+[2] Rafe Mazer and Kate McKee. *Consumer Protection in Digital Credit.* CGAP Focus Note No. 108, August 2017. cgap.org.
+
+[3] Ayush Mathur. *The Transparency Gap: How Personal Loan Decision Journeys Are Exposing India's Lending Trust Deficit.* Ken Research, 8 June 2026. kenresearch.com.
+
+[4] TVS Credit Services Limited. *Personal Loan Application Process.* Accessed 2 September 2026. tvscredit.com.
+
+[5] TVS Credit Services Limited. *TVS Credit Saathi* official Google Play listing. Accessed 2 September 2026. play.google.com.
+
+[6] Home Credit India. *How India Borrows Survey 2023.* Survey of approximately 1,842 borrowers across 17 Indian cities, 2023. homecredit.co.in.
+
+[7] Caroline Jones, Lynn Berry, and Catherine J. Stevens. *Synthesized Speech Intelligibility and Persuasion: Speech Rate and Non-Native Listeners.* Computer Speech & Language, 21(4):641-651, 2007. [doi:10.1016/j.csl.2007.03.001](https://doi.org/10.1016/j.csl.2007.03.001).
+
+[8] Reserve Bank of India. *Key Facts Statement (KFS) for Loans & Advances.* RBI/2024-25/18, DOR.STR.REC.13/13.03.00/2024-25, 15 April 2024. rbi.org.in.
