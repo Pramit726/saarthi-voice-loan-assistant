@@ -11,7 +11,7 @@ These are placeholders to be replaced before submission:
 - Demo: `TODO - add Drive demo link`
 - User story: [phone_first_loan_application_user_story.md](docs/phone_first_loan_application_user_story.md)
 - Workflow figure: [figure1_doubt_aware_voice_agent_workflow_300dpi.pdf](docs/figure1_doubt_aware_voice_agent_workflow_300dpi.pdf)
-- Technical requirements: `TODO - add technical_requirements.md`
+- Technical requirements: [phone_first_loan_application_technical_requirements_revised.md](docs/phone_first_loan_application_technical_requirements_revised.md)
 - MVP design: `TODO - add phone_first_loan_mvp_design_refined_draft.pdf`
 - Pitch deck: `TODO - add pitch_deck.pdf`
 - Product fact sheet: `TODO - add saarthi_product_fact_sheet.pdf`
