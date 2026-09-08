@@ -130,33 +130,31 @@ The prototype succeeds when a reviewer can observe that:
 
 ## 10. Demo preparation
 
-Prepare a small synthetic product fact sheet and a fixed, reviewable draft. The demonstration should use a short path with a name, requested amount, tenure, income, and existing repayments. Include one unfamiliar term and one deliberate correction so that the defining interaction is visible within a few minutes.
+Use a small synthetic product fact sheet and a reviewable draft. The demonstration should include:
 
-The demo should show the user-facing result, not require the audience to understand internal implementation details. A trace or dashboard may be shown afterward as supporting evidence.
+- one normal answer path;
+- one unfamiliar term or product-cost doubt; and
+- one correction or interruption that changes an earlier answer.
+
+The audience should be able to follow the borrower’s experience without needing to understand the implementation. Detailed test fixtures and measurement procedures are maintained separately in [`TEST_PLAN.md`](TEST_PLAN.md).
 
 ## 11. Demo acceptance test
-
-### Test A: normal completion path
-
-The borrower answers the questions for name, requested amount, tenure, monthly income, and existing repayments.
-
-**Pass when:** Saarthi asks one clear question at a time, the answers appear in the draft, and the final spoken summary matches the written review.
-
-### Test B: doubt and correction path
 
 At the tenure question, the borrower says:
 
 > “Stop. I meant eighteen months, not twelve. Also, what is the processing fee?”
 
-**Pass when:**
+The demonstration passes when the audience can observe that:
 
-- the twelve-month response stops rather than continuing over the user;
-- Saarthi answers the processing-fee question in understandable language;
+- the current speech stops promptly;
+- the processing-fee question receives an understandable answer;
 - only the tenure changes from twelve to eighteen months;
-- the borrower is asked to review or confirm the changed value;
-- the updated summary is consistent in speech and text;
-- no obsolete twelve-month response or stale result appears afterward;
-- no loan application, recommendation, or financial commitment is made.
+- the conversation resumes or presents the correct updated review;
+- the spoken summary matches the written draft;
+- the obsolete twelve-month response does not return; and
+- no application is submitted or borrowing decision is recommended.
+
+The normal completion path and detailed acceptance scenarios are documented in [`TEST_PLAN.md`](TEST_PLAN.md).
 
 ### Final user-facing outcome
 
