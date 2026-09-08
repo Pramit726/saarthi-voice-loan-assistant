@@ -29,6 +29,7 @@ saarthi-api = "saarthi.main:run_api"
 saarthi-agent = "saarthi.agent.worker:run_worker"
 saarthi-ingest = "saarthi.scripts.ingest_product_facts:main"
 saarthi-compile-facts = "saarthi.scripts.compile_product_sheet:main"
+saarthi-rime-preflight = "saarthi.scripts.preflight_rime:main"
 
 [build-system]
 requires = ["hatchling>=1.27"]
