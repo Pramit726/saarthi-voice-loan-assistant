@@ -150,6 +150,67 @@ class ResponsePlanner:
         )
         return self.guard.evaluate(plan)
 
+    def for_resolved_candidate(self, proposal: TurnProposal) -> ResponsePlan:
+        """Ask before committing a fuzzy or model-derived bounded value."""
+
+        field_label = proposal.target_field.value.replace("_", " ")
+        candidate = str(proposal.candidate_value)
+        if proposal.rationale_code == "fuzzy_city_candidate":
+            message = (
+                f"The closest Indian city match I found is {candidate}. "
+                f"Should I record {candidate}?"
+            )
+        else:
+            message = (
+                f"I understood your {field_label} as {candidate}. "
+                "Should I record that?"
+            )
+        plan = ResponsePlan(
+            purpose="confirm_resolved_candidate",
+            message_segments=[message, "Please say yes or no."],
+        )
+        return self.guard.evaluate(plan)
+
+    def for_invalid_field(
+        self, field_id: FieldId, *, reason_code: str = "invalid_structured_field"
+    ) -> ResponsePlan:
+        if reason_code == "loan_product_mismatch":
+            plan = ResponsePlan(
+                purpose="clarify_product_mismatch",
+                message_segments=[
+                    "This demonstration is for a personal loan, not a home-loan product.",
+                    "If you mean home renovation or house repairs, please say home renovation. Otherwise, say the main personal expense you want to fund.",
+                ],
+                resume_instruction=FIELD_DEFINITIONS[field_id].prompt,
+                fallback_code=reason_code,
+            )
+            return self.guard.evaluate(plan)
+
+        messages = {
+            FieldId.LOAN_PURPOSE: [
+                "I could not identify one clear loan purpose.",
+                "Please say one main purpose, such as education, medical expenses, home renovation, wedding, travel, debt consolidation, vehicle purchase, business expenses, or personal expenses.",
+            ],
+            FieldId.CITY: [
+                "I could not match that to a supported Indian city.",
+                "Please say the city name again.",
+            ],
+            FieldId.CONTACT_PREFERENCE: [
+                "I could not identify your contact preference.",
+                "Please say phone or email. Do not provide the actual contact detail.",
+            ],
+        }
+        plan = ResponsePlan(
+            purpose="clarify_invalid_field",
+            message_segments=messages.get(
+                field_id,
+                ["I could not validate that answer. Please answer the current question again."],
+            ),
+            resume_instruction=FIELD_DEFINITIONS[field_id].prompt,
+            fallback_code="invalid_structured_field",
+        )
+        return self.guard.evaluate(plan)
+
     def for_correction_confirmation(
         self, proposal: TurnProposal, *, current_value: object | None
     ) -> ResponsePlan:

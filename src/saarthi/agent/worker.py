@@ -120,12 +120,8 @@ async def entrypoint(ctx: JobContext) -> None:
         await runtime.close()
         raise RuntimeError(f"No Saarthi session exists for room {room_name}.")
 
-    rime_language = "hin" if state.language.lower().startswith("hi") else "eng"
-    rime_speaker = (
-        settings.rime_hindi_speaker
-        if rime_language == "hin"
-        else settings.rime_english_speaker
-    )
+    rime_language = "eng"
+    rime_speaker = settings.rime_english_speaker
 
     stt = deepgram.STTv2(
         model=settings.deepgram_model,
@@ -135,6 +131,13 @@ async def entrypoint(ctx: JobContext) -> None:
             "Saarthi",
             "loan amount",
             "loan purpose",
+            "education",
+            "medical expenses",
+            "home renovation",
+            "house repairs",
+            "debt consolidation",
+            "vehicle purchase",
+            "business expenses",
             "tenure",
             "six months",
             "twelve months",
@@ -148,6 +151,9 @@ async def entrypoint(ctx: JobContext) -> None:
             "KYC",
             "salaried",
             "self-employed",
+            "Bengaluru",
+            "Bangalore",
+            "Pune",
             "one lakh",
             "eighty thousand",
             # Single-word controls are easy to lose in noisy audio. Keep

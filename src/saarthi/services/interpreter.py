@@ -7,8 +7,13 @@ from typing import Protocol
 
 from saarthi.domain.contracts import ConversationState, FinalTranscript, TurnProposal
 from saarthi.domain.enums import ControlCommand, FieldId, TurnAct, TurnRoute
-from saarthi.domain.fields import FieldValidationError, normalise_and_validate
+from saarthi.domain.fields import (
+    FieldValidationError,
+    normalise_and_validate,
+    suggest_indian_city,
+)
 from saarthi.providers.groq import InterpretationPayload
+from saarthi.services.semantic_fields import SemanticFieldResolver
 
 CONTROL_PATTERNS: tuple[tuple[ControlCommand, re.Pattern[str]], ...] = (
     (
@@ -79,6 +84,35 @@ OFF_PATH_CUE_PATTERN = re.compile(
     r"cost|rate|change|update|correct|instead|make it|set it)\b)",
     re.IGNORECASE,
 )
+
+STRICT_TEXT_FIELDS = {
+    FieldId.LOAN_PURPOSE,
+    FieldId.CITY,
+    FieldId.CONTACT_PREFERENCE,
+}
+
+_GENERIC_NON_ANSWERS = {
+    "i want",
+    "i need",
+    "something",
+    "anything",
+    "posted this",
+    "this one",
+    "that one",
+    "not sure",
+    "i do not know",
+    "i don't know",
+}
+
+
+def _has_meaningful_semantic_content(text: str) -> bool:
+    normalized = " ".join(re.findall(r"[a-z]+", text.casefold()))
+    tokens = normalized.split()
+    return (
+        normalized not in _GENERIC_NON_ANSWERS
+        and len(tokens) >= 3
+        and any(len(token) >= 4 for token in tokens)
+    )
 
 
 def control_command_for_text(text: str) -> ControlCommand | None:
@@ -215,9 +249,16 @@ def _lexical_score(left: str, right: str) -> int:
 
 
 class RetrievedFewShotInterpreter:
-    def __init__(self, client: InterpretationClient, *, example_count: int = 5) -> None:
+    def __init__(
+        self,
+        client: InterpretationClient,
+        *,
+        example_count: int = 5,
+        semantic_resolver: SemanticFieldResolver | None = None,
+    ) -> None:
         self.client = client
         self.example_count = example_count
+        self.semantic_resolver = semantic_resolver
 
     async def interpret(
         self, transcript: FinalTranscript, state: ConversationState
@@ -240,6 +281,50 @@ class RetrievedFewShotInterpreter:
         direct_plain_answer = self._direct_plain_answer(transcript, state)
         if direct_plain_answer:
             return direct_plain_answer
+        direct_invalid_field = self._direct_invalid_structured_field(
+            transcript, state
+        )
+        if direct_invalid_field:
+            return direct_invalid_field
+
+        semantic_field = state.pending_field in {
+            FieldId.LOAN_PURPOSE,
+            FieldId.EMPLOYMENT_TYPE,
+        }
+        semantic_plain_answer = (
+            semantic_field
+            and _has_meaningful_semantic_content(transcript.text)
+            and not OFF_PATH_CUE_PATTERN.search(transcript.text)
+            and not any(
+                pattern.search(transcript.text) for pattern in HEDGED_VALUE_PATTERNS
+            )
+        )
+        if semantic_plain_answer and self.semantic_resolver is not None:
+            candidate = await self.semantic_resolver.resolve(
+                state.pending_field, transcript.text
+            )
+            if candidate is not None:
+                return TurnProposal(
+                    source_transcript_id=transcript.transcript_id,
+                    acts=[TurnAct.AMBIGUOUS],
+                    route=TurnRoute.CLARIFICATION,
+                    target_field=state.pending_field,
+                    candidate_value=candidate.value,
+                    source_span=transcript.text,
+                    uncertainty=1.0 - candidate.score,
+                    rationale_code="semantic_field_candidate",
+                    explicit_write=False,
+                )
+            return TurnProposal(
+                source_transcript_id=transcript.transcript_id,
+                acts=[TurnAct.AMBIGUOUS],
+                route=TurnRoute.CLARIFICATION,
+                target_field=state.pending_field,
+                source_span=transcript.text,
+                uncertainty=1.0,
+                rationale_code="invalid_structured_field",
+                explicit_write=False,
+            )
 
         ranked = sorted(
             EXAMPLES,
@@ -263,8 +348,12 @@ Routes: field_answer, field_doubt, product_question, calculation, correction, co
 Acts: answer, doubt, correction, control, mixed, ambiguous.
 A question, command, uncertainty, or mixed answer-plus-doubt must never be an explicit write.
 Only use a target field when it is explicit or is the single pending field for a plain answer.
-Normalize money candidates to numeric rupees, tenure to integer months, employment to salaried or self-employed,
-and contact preference to phone or email. Preserve the exact spoken phrase in source_span.
+Normalize money candidates to numeric rupees and tenure to integer months.
+Employment candidate values must be exactly salaried or self-employed.
+Loan-purpose candidate values must be exactly one of: education, medical expenses, home renovation, wedding,
+travel, debt consolidation, vehicle purchase, business expenses, consumer purchase, personal expenses.
+Contact preference must be exactly phone or email. If no allowed value is supported, return clarification with
+candidate_value null and explicit_write false. Preserve the exact spoken phrase in source_span.
 Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or email address."""
         user = json.dumps(
             {
@@ -342,6 +431,60 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
             rationale_code="deterministic_valid_field_answer",
             explicit_write=True,
         )
+
+    @staticmethod
+    def _direct_invalid_structured_field(
+        transcript: FinalTranscript, state: ConversationState
+    ) -> TurnProposal | None:
+        """Reject invalid bounded text answers without spending an LLM call."""
+
+        if (
+            state.pending_field not in STRICT_TEXT_FIELDS
+            or (transcript.confidence is not None and transcript.confidence < 0.70)
+            or OFF_PATH_CUE_PATTERN.search(transcript.text)
+            or any(pattern.search(transcript.text) for pattern in HEDGED_VALUE_PATTERNS)
+        ):
+            return None
+        try:
+            normalise_and_validate(state.pending_field, transcript.text)
+        except FieldValidationError:
+            rationale_code = "invalid_structured_field"
+            if state.pending_field is FieldId.LOAN_PURPOSE and re.search(
+                r"\b(?:home|housing)\s+loan\b", transcript.text, re.IGNORECASE
+            ):
+                rationale_code = "loan_product_mismatch"
+            elif state.pending_field is FieldId.LOAN_PURPOSE and _has_meaningful_semantic_content(
+                transcript.text
+            ):
+                # Let the schema-constrained interpreter propose only one of
+                # the approved purpose values. The proposal will still require
+                # explicit confirmation before the reducer can commit it.
+                return None
+            elif state.pending_field is FieldId.CITY:
+                suggestion = suggest_indian_city(transcript.text)
+                if suggestion is not None:
+                    return TurnProposal(
+                        source_transcript_id=transcript.transcript_id,
+                        acts=[TurnAct.AMBIGUOUS],
+                        route=TurnRoute.CLARIFICATION,
+                        target_field=FieldId.CITY,
+                        candidate_value=suggestion.city,
+                        source_span=transcript.text,
+                        uncertainty=1.0 - suggestion.score,
+                        rationale_code="fuzzy_city_candidate",
+                        explicit_write=False,
+                    )
+            return TurnProposal(
+                source_transcript_id=transcript.transcript_id,
+                acts=[TurnAct.AMBIGUOUS],
+                route=TurnRoute.CLARIFICATION,
+                target_field=state.pending_field,
+                source_span=transcript.text,
+                uncertainty=1.0,
+                rationale_code=rationale_code,
+                explicit_write=False,
+            )
+        return None
 
     @staticmethod
     def _direct_hedged_money(
@@ -463,6 +606,42 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
             and not unsafe_write_shape
             and not confidence_uncertain
         )
+        semantic_candidate = (
+            route is TurnRoute.FIELD_ANSWER
+            and target == state.pending_field
+            and target in {FieldId.LOAN_PURPOSE, FieldId.EMPLOYMENT_TYPE}
+            and payload.candidate_value is not None
+            and not confidence_uncertain
+            and not hedged_value
+        )
+        if semantic_candidate:
+            try:
+                normalized_candidate = normalise_and_validate(
+                    target, payload.candidate_value
+                )
+            except FieldValidationError:
+                return TurnProposal(
+                    source_transcript_id=transcript.transcript_id,
+                    acts=[TurnAct.AMBIGUOUS],
+                    route=TurnRoute.CLARIFICATION,
+                    target_field=target,
+                    source_span=transcript.text,
+                    uncertainty=1.0,
+                    rationale_code="invalid_structured_field",
+                    explicit_write=False,
+                )
+            return TurnProposal(
+                source_transcript_id=transcript.transcript_id,
+                acts=[TurnAct.AMBIGUOUS],
+                route=TurnRoute.CLARIFICATION,
+                target_field=target,
+                candidate_value=normalized_candidate,
+                source_span=payload.source_span or transcript.text,
+                reference_resolution=payload.reference_resolution,
+                uncertainty=max(payload.uncertainty, 0.25),
+                rationale_code="semantic_field_candidate",
+                explicit_write=False,
+            )
         return TurnProposal(
             source_transcript_id=transcript.transcript_id,
             acts=acts,

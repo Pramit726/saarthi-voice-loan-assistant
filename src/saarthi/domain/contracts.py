@@ -150,8 +150,8 @@ class ApplicationPatch(ContractModel):
     confirmation_required: bool = False
     confirmed: bool = False
     change_kind: ChangeKind = ChangeKind.INITIAL
-    normalizer_version: str = "field-normalizer-v1"
-    validator_version: str = "field-validator-v1"
+    normalizer_version: str = "field-normalizer-v2"
+    validator_version: str = "field-validator-v2"
 
 
 class CommitResult(ContractModel):

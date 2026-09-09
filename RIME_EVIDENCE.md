@@ -29,7 +29,7 @@ The local configuration and secret preflight is repeatable with:
 uv run saarthi-rime-preflight
 ```
 
-The preflight checks presence without printing `RIME_API_KEY` and verifies the exact model, speaker, languages, endpoint, transport, and audio settings documented below.
+The preflight checks presence without printing `RIME_API_KEY` and verifies the exact model, speaker, language, endpoint, transport, and audio settings documented below.
 
 ## Result
 
@@ -41,7 +41,7 @@ The listener-oriented rendering preserved 45/45 tested facts, achieved 97.8% ASR
 |---|---|
 | Model ID | `coda` |
 | Speaker | `nadi` |
-| Language | `eng` for English and `hin` for Hindi |
+| Language | `eng` (fixed English demonstration profile) |
 | Endpoint | `wss://users-ws.rime.ai` |
 | Transport | WebSocket streaming through `livekit-plugins-rime` |
 | Audio | `audio/pcm`, mono, 24,000 Hz |

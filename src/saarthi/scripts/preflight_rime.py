@@ -24,14 +24,9 @@ def main() -> int:
             settings.rime_english_speaker,
         ),
         (
-            "RIME_HINDI_SPEAKER",
-            settings.rime_hindi_speaker == "nadi",
-            settings.rime_hindi_speaker,
-        ),
-        (
-            "RIME_LANGUAGES",
+            "RIME_LANGUAGE",
             True,
-            "eng/hin selected from en-IN/hi-IN sessions",
+            "eng (fixed English demonstration profile)",
         ),
         (
             "RIME_ENDPOINT",

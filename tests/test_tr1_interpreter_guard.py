@@ -6,6 +6,8 @@ from saarthi.services.interpreter import (
     control_command_for_text,
     is_calculation_request,
 )
+from saarthi.services.planner import ResponsePlanner
+from saarthi.services.semantic_fields import SemanticFieldCandidate
 
 
 def payload(**overrides) -> InterpretationPayload:
@@ -158,6 +160,176 @@ async def test_valid_plain_money_answer_bypasses_the_llm(
     assert result.target_field is FieldId.REQUESTED_AMOUNT
     assert result.candidate_value == 100000
     assert result.rationale_code == "deterministic_valid_field_answer"
+
+
+async def test_invalid_bounded_text_answer_is_rejected_without_llm(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.LOAN_PURPOSE
+    interpreter = RetrievedFewShotInterpreter(client=None)  # type: ignore[arg-type]
+
+    result = await interpreter.interpret(transcript_factory("I want"), conversation)
+
+    assert result.route is TurnRoute.CLARIFICATION
+    assert result.target_field is FieldId.LOAN_PURPOSE
+    assert result.candidate_value is None
+    assert result.explicit_write is False
+    assert result.rationale_code == "invalid_structured_field"
+
+
+async def test_home_loan_product_mismatch_gets_targeted_clarification(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.LOAN_PURPOSE
+    interpreter = RetrievedFewShotInterpreter(client=None)  # type: ignore[arg-type]
+
+    result = await interpreter.interpret(
+        transcript_factory("I want home loan."), conversation
+    )
+
+    assert result.route is TurnRoute.CLARIFICATION
+    assert result.target_field is FieldId.LOAN_PURPOSE
+    assert result.explicit_write is False
+    assert result.rationale_code == "loan_product_mismatch"
+
+    plan = ResponsePlanner().for_invalid_field(
+        FieldId.LOAN_PURPOSE, reason_code=result.rationale_code
+    )
+    assert "personal loan" in plan.message_segments[0]
+    assert "home renovation" in plan.message_segments[1]
+
+
+async def test_city_transcription_alias_is_normalized_without_llm(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.CITY
+    interpreter = RetrievedFewShotInterpreter(client=None)  # type: ignore[arg-type]
+
+    result = await interpreter.interpret(transcript_factory("poooning"), conversation)
+
+    assert result.route is TurnRoute.FIELD_ANSWER
+    assert result.candidate_value == "Pune"
+    assert result.explicit_write is True
+
+
+async def test_fuzzy_city_is_proposed_for_confirmation_without_llm(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.CITY
+    interpreter = RetrievedFewShotInterpreter(client=None)  # type: ignore[arg-type]
+
+    result = await interpreter.interpret(
+        transcript_factory("Bangaloroo"), conversation
+    )
+
+    assert result.route is TurnRoute.CLARIFICATION
+    assert result.target_field is FieldId.CITY
+    assert result.candidate_value == "Bengaluru"
+    assert result.rationale_code == "fuzzy_city_candidate"
+    assert result.explicit_write is False
+
+
+def test_meaningful_unmatched_purpose_reaches_bounded_semantic_fallback(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.LOAN_PURPOSE
+
+    result = RetrievedFewShotInterpreter._direct_invalid_structured_field(
+        transcript_factory("I need to replace a broken water tank"), conversation
+    )
+
+    assert result is None
+
+
+def test_short_unrelated_purpose_is_rejected_before_llm(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.LOAN_PURPOSE
+
+    result = RetrievedFewShotInterpreter._direct_invalid_structured_field(
+        transcript_factory("Posted this"), conversation
+    )
+
+    assert result is not None
+    assert result.rationale_code == "invalid_structured_field"
+
+
+def test_model_derived_purpose_requires_confirmation(
+    transcript_factory, conversation
+):
+    conversation.pending_field = FieldId.LOAN_PURPOSE
+
+    result = RetrievedFewShotInterpreter._guard(
+        payload(
+            target_field="loan_purpose",
+            candidate_value="home renovation",
+            source_span="replace a broken water tank",
+            uncertainty=0.08,
+        ),
+        transcript_factory("I need to replace a broken water tank"),
+        conversation,
+    )
+
+    assert result.route is TurnRoute.CLARIFICATION
+    assert result.candidate_value == "home renovation"
+    assert result.rationale_code == "semantic_field_candidate"
+    assert result.explicit_write is False
+
+
+async def test_local_semantic_candidate_bypasses_llm_and_requires_confirmation(
+    transcript_factory, conversation
+):
+    class FailingClient:
+        async def interpret(self, **kwargs):
+            raise AssertionError("LLM should not be called for a local semantic match")
+
+    class StubResolver:
+        async def resolve(self, field_id, text):
+            assert field_id is FieldId.LOAN_PURPOSE
+            return SemanticFieldCandidate(
+                value="home renovation", score=0.76, margin=0.12
+            )
+
+    conversation.pending_field = FieldId.LOAN_PURPOSE
+    interpreter = RetrievedFewShotInterpreter(
+        FailingClient(),  # type: ignore[arg-type]
+        semantic_resolver=StubResolver(),  # type: ignore[arg-type]
+    )
+
+    result = await interpreter.interpret(
+        transcript_factory("I need to replace a broken water tank"), conversation
+    )
+
+    assert result.route is TurnRoute.CLARIFICATION
+    assert result.candidate_value == "home renovation"
+    assert result.rationale_code == "semantic_field_candidate"
+    assert result.explicit_write is False
+
+
+async def test_failed_local_semantic_match_clarifies_without_llm(
+    transcript_factory, conversation
+):
+    class FailingClient:
+        async def interpret(self, **kwargs):
+            raise AssertionError("LLM should not be called for an unmatched bounded field")
+
+    class EmptyResolver:
+        async def resolve(self, field_id, text):
+            return None
+
+    conversation.pending_field = FieldId.LOAN_PURPOSE
+    interpreter = RetrievedFewShotInterpreter(
+        FailingClient(),  # type: ignore[arg-type]
+        semantic_resolver=EmptyResolver(),  # type: ignore[arg-type]
+    )
+
+    result = await interpreter.interpret(
+        transcript_factory("I want it for an unusual unspecified matter"), conversation
+    )
+
+    assert result.route is TurnRoute.CLARIFICATION
+    assert result.candidate_value is None
+    assert result.rationale_code == "invalid_structured_field"
 
 
 async def test_spoken_tenure_answer_bypasses_the_llm(transcript_factory, conversation):

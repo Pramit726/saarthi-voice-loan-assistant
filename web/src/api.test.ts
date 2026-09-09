@@ -33,24 +33,6 @@ describe("API client", () => {
     });
   });
 
-  it("creates a Hindi voice session when selected", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ session_id: "session-hi", language: "hi-IN" }), {
-        status: 201,
-        headers: { "Content-Type": "application/json" },
-      }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    await createSession("hi-IN");
-
-    expect(fetchMock).toHaveBeenCalledWith("/api/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ language: "hi-IN" }),
-    });
-  });
-
   it("requests scoped LiveKit credentials for the created session", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ url: "wss://example.test", token: "token" }), {

@@ -17,7 +17,7 @@ The prototype is deliberately draft-only. It does not submit an application, app
 - Workflow figure: [figure1_doubt_aware_voice_agent_workflow_300dpi.pdf](docs/figure1_doubt_aware_voice_agent_workflow_300dpi.pdf)
 - Technical requirements: [phone_first_loan_application_technical_requirements_revised.md](docs/phone_first_loan_application_technical_requirements_revised.md)
 - MVP design: [phone_first_loan_mvp_design_refined_draft.pdf](docs/phone_first_loan_mvp_design_refined_draft.pdf)
-- Pitch deck: supplied alongside the repository in the submission package
+- Pitch deck: [saarthi_hackathon_pitch_deck.pdf](docs/saarthi_hackathon_pitch_deck.pdf)
 - Product fact sheet: [PRODUCT_FACT_SHEET.md](docs/PRODUCT_FACT_SHEET.md) · [canonical JSON](data/product/saarthi_product_facts_v1.json)
 
 ## What the MVP proves
@@ -102,7 +102,7 @@ The local default database is SQLite. For production, set `DATABASE_URL` to the 
 
 `.env.example` contains placeholders only. Copy it to `.env` locally and never commit `.env` or provider secrets. The frontend receives only the public API base URL and a short-lived LiveKit participant token; provider keys and database credentials remain server-side.
 
-Required server-side provider settings are:
+Core server-side provider settings are:
 
 ```ini
 LIVEKIT_URL=
@@ -112,6 +112,7 @@ LIVEKIT_AGENT_NAME=saarthi
 
 DEEPGRAM_API_KEY=
 GEMINI_API_KEY=
+# Optional; grounded wording is disabled in the default low-latency path
 GROQ_API_KEY=
 RIME_API_KEY=
 
@@ -134,8 +135,8 @@ Saarthi uses the LiveKit Rime plugin with the following fixed demonstration prof
 | Setting | Value |
 |---|---|
 | Model ID | `coda` |
-| Speaker | `nadi` for English and Hindi profiles |
-| Language values | `eng` and `hin` internally, selected from `en-IN` and `hi-IN` sessions |
+| Speaker | `nadi` |
+| Language | `eng` (fixed English demonstration profile) |
 | Endpoint | `wss://users-ws.rime.ai` |
 | Transport | Rime WebSocket streaming through the LiveKit Rime plugin |
 | Audio format | `audio/pcm`, mono, 24,000 Hz |
@@ -143,13 +144,22 @@ Saarthi uses the LiveKit Rime plugin with the following fixed demonstration prof
 
 The endpoint is selected by the Rime plugin when `use_websocket=True`; it is not exposed to the browser. The listener-oriented renderer creates short labelled segments and reuses the same structured financial projection for written and spoken output.
 
+## Bounded field understanding
+
+Saarthi accepts natural descriptions for the small set of fields in the synthetic draft while keeping application writes deterministic:
+
+- Employment phrases such as “I own a business” or “I work for a private company” are mapped to a bounded category.
+- Loan purpose first uses deterministic phrase categories; uncommon descriptions may produce a local embedding candidate, which is always read back for explicit confirmation before commit.
+- City values use an offline GeoNames-based Indian-city index with aliases. Exact matches can commit; fuzzy matches are proposed for confirmation, while unsupported names are rejected.
+- Gemini remains an untrusted proposal path for unresolved turns; it cannot write application state.
+
 Run the secret/configuration preflight after setting `RIME_API_KEY`:
 
 ```powershell
 uv run saarthi-rime-preflight
 ```
 
-The command checks that the secret is present without printing it, verifies `coda`, `nadi`, `eng`/`hin`, 24 kHz, WebSocket mode, and the expected endpoint. It exits non-zero if the local configuration is incomplete.
+The command checks that the secret is present without printing it, verifies `coda`, `nadi`, `eng`, 24 kHz, WebSocket mode, and the expected endpoint. It exits non-zero if the local configuration is incomplete.
 
 ## Third-party services
 
@@ -212,6 +222,6 @@ The built-in evidence dashboard reports current-session traces, selectable sessi
 - Synthetic, bounded product and borrower data only.
 - One fictional product and no real lender integration.
 - No authentication, KYC, credit decision, approval, rejection, mandate, payment, submission, or disbursal.
-- Acceptance evidence is strongest for the bounded English flow; Hindi output is configurable but broader multilingual/code-switched recognition is future work.
+- The current prototype intentionally supports English only; multilingual and code-switched recognition and output are future work.
 - Production telephony, long-term memory, human handoff, accessibility compliance, and independent user studies are out of scope.
 - Latency depends on the selected browser, network, and external providers; reported values are engineering measurements, not service-level guarantees.

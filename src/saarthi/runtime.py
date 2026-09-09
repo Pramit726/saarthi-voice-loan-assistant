@@ -20,6 +20,7 @@ from saarthi.services.interpreter import RetrievedFewShotInterpreter
 from saarthi.services.orchestrator import TurnOrchestrator
 from saarthi.services.planner import ResponsePlanner
 from saarthi.services.renderer import ListenerRenderer
+from saarthi.services.semantic_fields import SemanticFieldResolver
 from saarthi.services.session import SessionService
 from saarthi.storage.sqlite import SqliteStateRepository
 
@@ -83,7 +84,10 @@ def build_runtime(settings: Settings) -> Runtime:
         writer=groq if settings.grounded_llm_wording_enabled else None,
         retrieval_limit=settings.retrieval_limit,
     )
-    interpreter = RetrievedFewShotInterpreter(gemini)
+    interpreter = RetrievedFewShotInterpreter(
+        gemini,
+        semantic_resolver=SemanticFieldResolver(model_name=settings.embedding_model),
+    )
     orchestrator = TurnOrchestrator(
         repository=repository,
         interpreter=interpreter,

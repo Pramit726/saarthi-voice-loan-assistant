@@ -40,14 +40,8 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 type VoiceState = "idle" | "connecting" | "listening" | "speaking" | "paused";
-type VoiceLanguage = "en-IN" | "hi-IN";
 type TranscriptSpeaker = "You" | "Saarthi";
 type TranscriptLine = { id: string; speaker: TranscriptSpeaker; text: string };
-
-const LANGUAGE_OPTIONS: Array<{ code: VoiceLanguage; label: string; sublabel: string; voice: string }> = [
-  { code: "en-IN", label: "English", sublabel: "Indian English", voice: "Coda · Nadi" },
-  { code: "hi-IN", label: "हिन्दी", sublabel: "Hindi voice", voice: "Coda · Nadi" },
-];
 
 const VOICE_STATE_COPY: Record<VoiceState, { label: string; title: string; detail: string }> = {
   idle: {
@@ -113,7 +107,6 @@ function BorrowerView() {
   const [room, setRoom] = useState<Room | null>(null);
   const [status, setStatus] = useState("Ready to begin");
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
-  const [language, setLanguage] = useState<VoiceLanguage>("en-IN");
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [liveTranscript, setLiveTranscript] = useState<TranscriptLine | null>(null);
   const [draft, setDraft] = useState<any>(null);
@@ -130,7 +123,7 @@ function BorrowerView() {
   const start = async () => {
     setVoiceState("connecting");
     setStatus("Creating a private demonstration session...");
-    const created = await createSession(language);
+    const created = await createSession();
     const credentials = await getToken(created.session_id);
     const nextRoom = new Room({ adaptiveStream: true, dynacast: true });
     nextRoom.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
@@ -256,23 +249,12 @@ function BorrowerView() {
         <div className="hero-note"><span className="hero-note-icon"><img src="/saarthi-mark.jpg" alt="" /></span><div><strong>You are in control</strong><small>Saarthi can explain and prepare a draft. Only you can submit it.</small></div></div>
       </section>
 
-      {!session && <section className="language-card" aria-label="Choose voice language">
-        <div><span className="eyebrow">VOICE LANGUAGE</span><strong>How would you like to hear Saarthi?</strong><small>Your choice selects the Rime Coda language and voice for this session.</small></div>
-        <div className="language-options" role="radiogroup" aria-label="Voice language options">
-          {LANGUAGE_OPTIONS.map((option) => <button key={option.code} type="button" role="radio" aria-checked={language === option.code} className={`language-option ${language === option.code ? "selected" : ""}`} onClick={() => setLanguage(option.code)}>
-            <span className="language-radio" />
-            <span><b>{option.label}</b><small>{option.sublabel}</small></span>
-            <em>{option.voice}</em>
-          </button>)}
-        </div>
-      </section>}
-
       <section className="notice">This prototype uses fictional product terms and non-sensitive answers. Never speak PAN, Aadhaar, OTP, bank details, a phone number, or an email address.</section>
 
       <div className="grid">
         <section className="card voice-card">
           <div className="voice-stage">
-            <div className="voice-stage-top"><span className={`state-pill state-${voiceState}`}><i /> {copy.label}</span><span className="stage-caption">{room ? `${language === "hi-IN" ? "हिन्दी" : "English"} · Rime Coda` : "Voice guide"}</span></div>
+            <div className="voice-stage-top"><span className={`state-pill state-${voiceState}`}><i /> {copy.label}</span><span className="stage-caption">{room ? "English · Rime Coda" : "Voice guide"}</span></div>
             <div className={`orb orb-${voiceState}`} data-active={Boolean(room)} data-state={voiceState}><div className="orb-halo orb-halo-one" /><div className="orb-halo orb-halo-two" /><div className="orb-core"><VoiceMark state={voiceState} /></div></div>
             <h2>{copy.title}</h2>
             <p className="voice-detail">{voiceState === "idle" ? copy.detail : status}</p>

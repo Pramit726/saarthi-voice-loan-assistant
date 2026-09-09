@@ -2,7 +2,7 @@
 
 **Document type:** User story and product scope  
 **Target user:** Anita, a first-time or financially less-confident borrower  
-**Primary setting:** An inbound phone conversation  
+**Primary setting:** A phone-first voice journey demonstrated through the browser; production PSTN telephony is outside scope
 **Primary experience:** Voice-first guidance with a written review alongside it
 
 ## 1. Overview
@@ -92,7 +92,7 @@ The visual overview is available as [Figure 1: Doubt-aware voice-agent workflow]
 1. Saarthi welcomes the borrower and explains that it is preparing a reviewable draft.
 2. It asks for one item at a time.
 3. The borrower answers in ordinary language.
-4. Saarthi confirms uncertain or important values and continues.
+4. Saarthi normalizes bounded natural descriptions, confirms inferred or fuzzy matches, and continues.
 5. The borrower can review the accumulated draft at any time.
 
 ### Doubt or correction path
@@ -113,6 +113,7 @@ The visual overview is available as [Figure 1: Doubt-aware voice-agent workflow]
 - Reviewable written draft and spoken summary.
 - Neutral guidance with no recommendation or pressure.
 - A clear handoff or support path when the user is not satisfied.
+- Bounded natural-language handling for employment type and loan purpose, plus conservative Indian-city validation.
 
 ### Not included
 
@@ -121,6 +122,8 @@ The visual overview is available as [Figure 1: Doubt-aware voice-agent workflow]
 - Binding submission, payment, mandate creation, or identity verification.
 - Personal financial advice.
 - Claims beyond the approved product information.
+- Hindi, multilingual, or code-switched voice output.
+- Production PSTN telephony, lender submission, or external geocoding.
 
 RBI's Key Facts Statement circular requires key loan facts to be presented in simple language understood by the borrower, including APR and the amortisation schedule, and explained before contract execution [8]. Saarthi's voice interaction therefore supports comprehension but does not replace the authoritative written disclosure.
 

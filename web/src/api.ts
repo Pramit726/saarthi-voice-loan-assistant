@@ -6,7 +6,7 @@ export type Session = {
   room_name: string;
   pending_field: string | null;
   opening_prompt: string;
-  language?: "en-IN" | "hi-IN";
+  language?: "en-IN";
 };
 
 export type SessionSummary = {
@@ -48,11 +48,11 @@ const json = async <T>(response: Response): Promise<T> => {
   return response.json() as Promise<T>;
 };
 
-export const createSession = (language: "en-IN" | "hi-IN" = "en-IN") =>
+export const createSession = () =>
   fetch(apiUrl("/api/sessions"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ language }),
+    body: JSON.stringify({ language: "en-IN" }),
   }).then((response) => json<Session>(response));
 
 export const getToken = (sessionId: string) =>

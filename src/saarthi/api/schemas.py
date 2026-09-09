@@ -21,7 +21,7 @@ class SessionCreateResponse(BaseModel):
 
 
 class SessionCreateRequest(BaseModel):
-    language: Literal["en-IN", "hi-IN"] = "en-IN"
+    language: Literal["en-IN"] = "en-IN"
 
 
 class TokenRequest(BaseModel):

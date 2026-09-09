@@ -170,10 +170,34 @@ class TurnOrchestrator:
 
         elif (
             proposal.route is TurnRoute.CLARIFICATION
+            and proposal.rationale_code
+            in {"fuzzy_city_candidate", "semantic_field_candidate"}
+            and proposal.target_field is not None
+            and proposal.candidate_value is not None
+        ):
+            state = self.state_machine.hold_for_confirmation(state, proposal)
+            await self.repository.save_state(state)
+            plan = self.planner.for_resolved_candidate(proposal)
+
+        elif (
+            proposal.route is TurnRoute.CLARIFICATION
+            and proposal.rationale_code
+            in {"invalid_structured_field", "loan_product_mismatch"}
+            and proposal.target_field is not None
+        ):
+            plan = self.planner.for_invalid_field(
+                proposal.target_field,
+                reason_code=proposal.rationale_code,
+            )
+
+        elif (
+            proposal.route is TurnRoute.CLARIFICATION
             and proposal.rationale_code == "hedged_value"
             and proposal.target_field is not None
             and proposal.candidate_value is not None
         ):
+            state = self.state_machine.hold_for_confirmation(state, proposal)
+            await self.repository.save_state(state)
             plan = self.planner.for_hedged_value(proposal)
 
         elif proposal.rationale_code == "discard_pending_write":

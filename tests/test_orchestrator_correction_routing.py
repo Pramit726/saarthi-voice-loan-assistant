@@ -241,3 +241,41 @@ async def test_hedged_income_is_confirmed_before_commit(
     assert result.response_plan.message_segments == [
         "I understood your monthly income as 80,000 rupees. Should I record that?"
     ]
+
+
+async def test_fuzzy_city_candidate_is_held_for_confirmation(
+    application,
+    conversation,
+    transcript_factory,
+    proposal_factory,
+):
+    from conftest import ScriptedInterpreter, build_test_orchestrator
+
+    from saarthi.storage.repository import InMemoryStateRepository
+
+    conversation.pending_field = FieldId.CITY
+    interpreter = ScriptedInterpreter(
+        {
+            "Bangaloroo": proposal_factory(
+                route=TurnRoute.CLARIFICATION,
+                acts=[TurnAct.AMBIGUOUS],
+                target=FieldId.CITY,
+                value="Bengaluru",
+                explicit_write=False,
+                rationale="fuzzy_city_candidate",
+            )
+        }
+    )
+    repository = InMemoryStateRepository()
+    await repository.create(application, conversation)
+    orchestrator = build_test_orchestrator(repository, interpreter)
+
+    result = await orchestrator.process_final_transcript(
+        transcript_factory("Bangaloroo")
+    )
+
+    assert result.commit_result is None
+    assert result.draft.revision == 0
+    assert result.state.pending_write_confirmation is not None
+    assert result.response_plan.purpose == "confirm_resolved_candidate"
+    assert "Bengaluru" in result.response_plan.message_segments[0]

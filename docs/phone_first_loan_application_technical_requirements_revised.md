@@ -1,17 +1,19 @@
 # Refined Technical Requirements for a Doubt-Aware Phone-First Personal-Loan Pre-Application
 
-**Six consolidated requirements, evaluation criteria, and research scope**  
-Research hackathon requirements draft | 3 September 2026
+**Six consolidated requirements, evaluation criteria, and implementation scope**
+Implementation-aligned requirements | 9 September 2026
 
 > **Central technical problem.** How can a phone-first conversational loan form recognize that a borrower has asked a contextual doubt or made a correction, preserve and safely update the structured application state while resolving that event from approved product facts, and resume the correct field without storing the off-path utterance as an answer?
 
 ## 1. Core research requirements
 
-### TR-1: Intent understanding
+### TR-1: Off-path turn understanding
 
 **Technical requirement.** For every recognized user turn, the system shall determine whether the borrower is answering the pending field, asking a contextual doubt, correcting information, issuing a control command, combining multiple acts, or providing an ambiguous response. A non-answer shall not be committed as a field value.
 
 **Meaning in this product.** When asked for income, the utterance *“Rs. 32,000, but does that include incentives?”* must be treated as an answer plus a doubt. The value remains provisional until the doubt is resolved and the borrower confirms what should be included.
+
+**Implemented bounded-field boundary.** Clear supported answers use deterministic normalizers. Employment descriptions are mapped through explicit phrases; loan-purpose descriptions use deterministic categories followed, when needed, by a local semantic proposal; and city values are checked against an offline Indian-city gazetteer with conservative fuzzy matching. Local semantic and fuzzy-city proposals remain provisional until the borrower explicitly confirms them. Gemini is used only for remaining typed off-path interpretation and has no write authority.
 
 **Acceptance evidence.** Measure per-class precision and recall, target-field accuracy, value-extraction accuracy, non-answer write rate, and appropriate clarification rate. Clear questions and control commands must never be stored as form values.
 
@@ -82,7 +84,7 @@ The written fact sheet remains authoritative. RBI's Key Facts Statement requirem
 | TR-5 | Command success, stop latency, audio cancellation, state preservation | Commands during listening, reasoning, synthesis, and playback |
 | TR-6 | Pressure, urgency, omission, recommendation, submission, and privacy violations | Acceptance, hesitation, decline, repeated questions, and adversarial prompts |
 
-The first evaluation set can be synthetic and deterministic. Each conversation trace should define the expected turn type, target field, state before and after the turn, allowed facts, spoken values, and terminal action. Numerical success thresholds should be selected after credible baselines have been implemented and measured.
+The first evaluation set can be synthetic and deterministic. Each conversation trace should define the expected turn type, target field, state before and after the turn, allowed facts, spoken values, and terminal action. The current implementation uses the measured baselines and selected thresholds recorded in the MVP design, `TEST_PLAN.md`, and `RIME_EVIDENCE.md`. The demonstration profile is English only; multilingual and code-switched recognition or output are future work.
 
 > **Definition of technical success.** A borrower can leave the expected answer path to ask a question or make a correction; the assistant understands the event, preserves the form, answers only from approved facts, and resumes or revises the intended field. Financial values remain clear and consistent, and the borrower can stop or decline without pressure.
 
@@ -90,4 +92,3 @@ The first evaluation set can be synthetic and deterministic. Each conversation t
 
 1. Caroline Jones, Lynn Berry, and Catherine J. Stevens. *Synthesized Speech Intelligibility and Persuasion: Speech Rate and Non-Native Listeners.* Computer Speech & Language, 21(4):641-651, 2007. [doi:10.1016/j.csl.2007.03.001](https://doi.org/10.1016/j.csl.2007.03.001).
 2. Reserve Bank of India. *Key Facts Statement (KFS) for Loans & Advances.* RBI/2024-25/18, DOR.STR.REC.13/13.03.00/2024-25, 15 April 2024. [rbi.org.in](https://www.rbi.org.in/).
-

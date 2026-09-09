@@ -7,6 +7,7 @@ from saarthi.domain.enums import (
     SessionStatus,
     TurnRoute,
 )
+from saarthi.domain.fields import FIELD_DEFINITIONS
 from saarthi.domain.state import ConversationStateMachine
 from saarthi.services.planner import ResponsePlanner
 
@@ -68,7 +69,7 @@ def test_go_back_changes_navigation_not_application_revision(conversation):
     )
     assert changed.pending_field is FieldId.LOAN_PURPOSE
     assert changed.linked_application_revision == 2
-    assert changed.last_safe_prompt == "What is the purpose of the loan?"
+    assert changed.last_safe_prompt == FIELD_DEFINITIONS[FieldId.LOAN_PURPOSE].prompt
 
 
 def test_resume_and_go_back_controls_speak_the_restored_question():

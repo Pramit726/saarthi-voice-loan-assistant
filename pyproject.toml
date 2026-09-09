@@ -8,6 +8,7 @@ dependencies = [
     "aiosqlite>=0.21.0",
     "asyncpg>=0.30.0",
     "fastapi>=0.116.0",
+    "geonamescache>=3.0.2",
     "groq>=0.31.0",
     "httpx>=0.28.0",
     "livekit-agents[rime]>=1.5,<2",

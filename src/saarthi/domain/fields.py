@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from difflib import SequenceMatcher
+from functools import lru_cache
 from typing import Any
+
+import geonamescache
 
 from .enums import FieldId
 
@@ -138,21 +143,157 @@ def _normalise_tenure(value: Any) -> int:
 
 
 def _normalise_employment(value: Any) -> str:
-    text = _clean_text(value).lower().replace("_", "-")
-    if "self" in text or "business" in text or "freelance" in text:
+    text = _clean_text(value).casefold().replace("_", "-")
+    self_employed = re.search(
+        r"\b(?:self[ -]?employed|business(?: owner)?|entrepreneur|proprietor|"
+        r"shopkeeper|freelanc(?:e|er)|consultant|contractor|gig worker|"
+        r"independent(?: consultant| consulting| work)?)\b|"
+        r"\b(?:own|run|operate|manage)\b.{0,28}\b(?:business|shop|firm|company)\b",
+        text,
+    )
+    salaried = re.search(
+        r"\b(?:salaried|salary|employee|payroll|government job|"
+        r"private job|office job)\b|\bwork(?:ing)?\b.{0,24}\bfor\b.{0,24}"
+        r"\b(?:company|firm|employer|government)\b",
+        text,
+    )
+    if not salaried and not re.search(r"\bself[ -]?employed\b", text):
+        salaried = re.search(r"\bemployed\b", text)
+    if self_employed and salaried:
+        raise ValueError("Please choose salaried or self-employed as the main type.")
+    if self_employed:
         return "self-employed"
-    if "salary" in text or "salaried" in text or "employee" in text:
+    if salaried:
         return "salaried"
     return text
 
 
+_LOAN_PURPOSE_PATTERNS: tuple[tuple[str, tuple[re.Pattern[str], ...]], ...] = (
+    (
+        "education",
+        (
+            re.compile(
+                r"\b(?:education|educational|tuition|school|college|university|"
+                r"course|coaching|classes|academic fees?|school fees?|college fees?|"
+                r"stud(?:y|ies))\b",
+                re.IGNORECASE,
+            ),
+        ),
+    ),
+    (
+        "medical expenses",
+        (
+            re.compile(
+                r"\b(?:medical|hospital|surgery|treatment|healthcare|medicine|"
+                r"doctor(?:'s)? bills?|medical bills?)\b",
+                re.IGNORECASE,
+            ),
+        ),
+    ),
+    (
+        "home renovation",
+        (
+            re.compile(
+                r"\b(?:renovat(?:e|ion|ing)|home improvement|house repairs?|"
+                r"home repairs?|house construction|fix(?:ing)?\b.{0,24}"
+                r"\b(?:house|home|roof))\b",
+                re.IGNORECASE,
+            ),
+        ),
+    ),
+    (
+        "wedding",
+        (re.compile(r"\b(?:wedding|marriage)\b", re.IGNORECASE),),
+    ),
+    (
+        "travel",
+        (re.compile(r"\b(?:travel|trip|vacation|holiday)\b", re.IGNORECASE),),
+    ),
+    (
+        "debt consolidation",
+        (
+            re.compile(
+                r"\b(?:debt|consolidat(?:e|ion)|credit card dues?|repay(?:ing|ment)? another loan)\b",
+                re.IGNORECASE,
+            ),
+        ),
+    ),
+    (
+        "vehicle purchase",
+        (
+            re.compile(
+                r"\b(?:vehicle|car|bike|motorcycle|scooter)\b",
+                re.IGNORECASE,
+            ),
+        ),
+    ),
+    (
+        "business expenses",
+        (
+            re.compile(
+                r"\b(?:business|working capital|inventory|shop expenses?|"
+                r"business equipment|equipment for (?:my |the )?shop)\b",
+                re.IGNORECASE,
+            ),
+        ),
+    ),
+    (
+        "consumer purchase",
+        (
+            re.compile(
+                r"\b(?:laptop|computer|appliance|electronics?|furniture)\b",
+                re.IGNORECASE,
+            ),
+        ),
+    ),
+    (
+        "personal expenses",
+        (
+            re.compile(
+                r"\b(?:personal|family expenses?|household expenses?|emergency)\b",
+                re.IGNORECASE,
+            ),
+        ),
+    ),
+)
+
+
+def _normalise_loan_purpose(value: Any) -> str:
+    """Map a meaningful spoken purpose to the bounded demo taxonomy."""
+
+    text = _clean_text(value).strip(" \t.,!?;:")
+    if not re.search(r"[a-z]", text, re.IGNORECASE):
+        raise ValueError("I could not identify a loan purpose.")
+
+    matches = {
+        purpose
+        for purpose, patterns in _LOAN_PURPOSE_PATTERNS
+        if any(pattern.search(text) for pattern in patterns)
+    }
+    if len(matches) > 1:
+        raise ValueError("Please state one main loan purpose.")
+    if not matches:
+        raise ValueError(
+            "Please give a specific purpose such as education, medical expenses, "
+            "home renovation, wedding, travel, debt consolidation, vehicle purchase, "
+            "business expenses, or personal expenses."
+        )
+    return matches.pop()
+
+
 def _normalise_contact(value: Any) -> str:
-    text = _clean_text(value).lower()
-    if any(token in text for token in ("call", "phone", "voice")):
+    text = _clean_text(value).casefold()
+    phone = bool(re.search(r"\b(?:call|phone|telephone|voice)\b", text))
+    email = bool(
+        re.search(r"\b(?:e[ -]?mail|mail|gmail|written(?: message| follow-up)?)\b", text)
+    )
+    if phone and email:
+        raise ValueError("Please choose only one contact preference: phone or email.")
+    if phone:
         return "phone"
-    if any(token in text for token in ("email", "mail", "written")):
+    if email:
         return "email"
-    return text
+    raise ValueError("Contact preference must explicitly say phone or email.")
 
 
 _CITY_PREFIXES: tuple[re.Pattern[str], ...] = (
@@ -167,9 +308,77 @@ _CITY_PREFIXES: tuple[re.Pattern[str], ...] = (
 )
 
 
-def _normalise_city(value: Any) -> str:
-    """Extract a city name from common conversational answer forms."""
+def _city_key(value: str) -> str:
+    ascii_value = unicodedata.normalize("NFKD", value.casefold()).encode(
+        "ascii", "ignore"
+    ).decode("ascii")
+    return " ".join(re.findall(r"[a-z]+", ascii_value))
 
+
+_MANUAL_CITY_ALIASES: dict[str, str] = {
+    "allahabad": "Prayagraj",
+    "bangalore": "Bengaluru",
+    # Frequent Indian-English and ASR renderings observed in manual tests.
+    "bangalor": "Bengaluru",
+    "bangaluru": "Bengaluru",
+    "banglore": "Bengaluru",
+    "bangluru": "Bengaluru",
+    "bengaluru city": "Bengaluru",
+    "benglore": "Bengaluru",
+    "bengluru": "Bengaluru",
+    "bingaluru": "Bengaluru",
+    "bingloru": "Bengaluru",
+    "bombay": "Mumbai",
+    "calcutta": "Kolkata",
+    "cochin": "Kochi",
+    "gurgaon": "Gurugram",
+    "madras": "Chennai",
+    "mangalore": "Mangaluru",
+    "mysore": "Mysuru",
+    "poona": "Pune",
+    "poonah": "Pune",
+    "pooning": "Pune",
+    "poooning": "Pune",
+    "puna": "Pune",
+    "trichy": "Tiruchirappalli",
+    "trivandrum": "Thiruvananthapuram",
+    "vizag": "Visakhapatnam",
+}
+
+
+@dataclass(frozen=True)
+class CitySuggestion:
+    city: str
+    score: float
+    source: str = "geonames_offline"
+
+
+@lru_cache(maxsize=1)
+def _indian_city_aliases() -> dict[str, frozenset[str]]:
+    """Load canonical and alternate Indian city names from GeoNames once."""
+
+    aliases: dict[str, set[str]] = {}
+    cities = geonamescache.GeonamesCache().get_cities().values()
+    for record in cities:
+        if record.get("countrycode") != "IN":
+            continue
+        canonical = str(record.get("name", "")).strip()
+        if not canonical:
+            continue
+        names = [canonical, *record.get("alternatenames", [])]
+        for name in names:
+            key = _city_key(str(name))
+            if len(key) >= 2:
+                aliases.setdefault(key, set()).add(canonical)
+
+    # Product-tested aliases deliberately override historical or ambiguous
+    # GeoNames alternatives while still resolving to a canonical city value.
+    for alias, canonical in _MANUAL_CITY_ALIASES.items():
+        aliases[alias] = {canonical}
+    return {key: frozenset(values) for key, values in aliases.items()}
+
+
+def _extract_city_text(value: Any) -> str:
     text = _clean_text(value).strip(" \t.,!?;:")
     for prefix in _CITY_PREFIXES:
         stripped = prefix.sub("", text, count=1).strip(" \t.,!?;:")
@@ -180,9 +389,70 @@ def _normalise_city(value: Any) -> str:
     # A caller may include a state for clarity (for example, "Pune,
     # Maharashtra"), but this field deliberately stores only the city.
     text = text.split(",", maxsplit=1)[0].strip(" \t.,!?;:")
-    if not text:
+    text = re.sub(
+        r"\s+(?:full|please|only|actually|thanks?)$", "", text, flags=re.IGNORECASE
+    )
+    return text
+
+
+def _resolve_city_exact(text: str) -> str:
+    key = _city_key(text)
+    if not key:
         raise ValueError("I could not identify the city.")
-    return text.title()
+    if re.search(r"\b(?:or|and)\b", key):
+        raise ValueError("I heard more than one city. Please say one city name.")
+
+    candidates = _indian_city_aliases().get(key, frozenset())
+    if len(candidates) == 1:
+        return next(iter(candidates))
+    if len(candidates) > 1:
+        canonical_matches = {
+            candidate for candidate in candidates if _city_key(candidate) == key
+        }
+        if len(canonical_matches) == 1:
+            return next(iter(canonical_matches))
+        ascii_matches = {
+            candidate
+            for candidate in canonical_matches
+            if candidate.isascii() and candidate.casefold() == key
+        }
+        if len(ascii_matches) == 1:
+            return next(iter(ascii_matches))
+        raise ValueError(
+            "That city name is ambiguous. Please also say the state or use a nearby major city."
+        )
+    raise ValueError("I could not find that Indian city in the local GeoNames index.")
+
+
+def suggest_indian_city(value: Any) -> CitySuggestion | None:
+    """Return one conservative fuzzy GeoNames candidate for explicit confirmation."""
+
+    key = _city_key(_extract_city_text(value))
+    if len(key) < 3 or re.search(r"\b(?:or|and)\b", key):
+        return None
+
+    scores: dict[str, float] = {}
+    for alias, canonical_names in _indian_city_aliases().items():
+        if alias[0] != key[0] or abs(len(alias) - len(key)) > 3:
+            continue
+        score = SequenceMatcher(None, key, alias).ratio()
+        for canonical in canonical_names:
+            scores[canonical] = max(score, scores.get(canonical, 0.0))
+    if len(scores) < 2:
+        return None
+
+    ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    best_city, best_score = ranked[0]
+    second_score = ranked[1][1]
+    if best_score >= 0.84 and best_score - second_score >= 0.04:
+        return CitySuggestion(city=best_city, score=best_score)
+    return None
+
+
+def _normalise_city(value: Any) -> str:
+    """Validate an exact city/alias against the offline Indian GeoNames index."""
+
+    return _resolve_city_exact(_extract_city_text(value))
 
 
 def _validate_amount(value: Decimal) -> None:
@@ -245,8 +515,8 @@ FIELD_DEFINITIONS: dict[FieldId, FieldDefinition] = {
     ),
     FieldId.LOAN_PURPOSE: FieldDefinition(
         FieldId.LOAN_PURPOSE,
-        "What is the purpose of the loan?",
-        _clean_text,
+        "What is the main purpose of the loan, such as education, medical expenses, home renovation, travel, or another personal expense?",
+        _normalise_loan_purpose,
         _validate_short_text,
     ),
     FieldId.PREFERRED_TENURE: FieldDefinition(
