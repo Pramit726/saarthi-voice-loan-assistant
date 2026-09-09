@@ -281,9 +281,7 @@ class RetrievedFewShotInterpreter:
         direct_plain_answer = self._direct_plain_answer(transcript, state)
         if direct_plain_answer:
             return direct_plain_answer
-        direct_invalid_field = self._direct_invalid_structured_field(
-            transcript, state
-        )
+        direct_invalid_field = self._direct_invalid_structured_field(transcript, state)
         if direct_invalid_field:
             return direct_invalid_field
 
@@ -453,8 +451,9 @@ Never request or extract real PAN, Aadhaar, bank account, OTP, phone number, or 
                 r"\b(?:home|housing)\s+loan\b", transcript.text, re.IGNORECASE
             ):
                 rationale_code = "loan_product_mismatch"
-            elif state.pending_field is FieldId.LOAN_PURPOSE and _has_meaningful_semantic_content(
-                transcript.text
+            elif (
+                state.pending_field is FieldId.LOAN_PURPOSE
+                and _has_meaningful_semantic_content(transcript.text)
             ):
                 # Let the schema-constrained interpreter propose only one of
                 # the approved purpose values. The proposal will still require

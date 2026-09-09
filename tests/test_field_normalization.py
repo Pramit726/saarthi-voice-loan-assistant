@@ -57,10 +57,14 @@ def test_city_rejects_unmatched_or_ambiguous_text(spoken_answer: str) -> None:
 def test_loan_purpose_maps_to_bounded_taxonomy(
     spoken_answer: str, expected_purpose: str
 ) -> None:
-    assert normalise_and_validate(FieldId.LOAN_PURPOSE, spoken_answer) == expected_purpose
+    assert (
+        normalise_and_validate(FieldId.LOAN_PURPOSE, spoken_answer) == expected_purpose
+    )
 
 
-@pytest.mark.parametrize("spoken_answer", [".", "I want", "something", "wedding and travel"])
+@pytest.mark.parametrize(
+    "spoken_answer", [".", "I want", "something", "wedding and travel"]
+)
 def test_loan_purpose_rejects_filler_and_multiple_purposes(spoken_answer: str) -> None:
     with pytest.raises(FieldValidationError):
         normalise_and_validate(FieldId.LOAN_PURPOSE, spoken_answer)
@@ -108,8 +112,7 @@ def test_employment_type_handles_natural_descriptions(
     spoken_answer: str, expected_type: str
 ) -> None:
     assert (
-        normalise_and_validate(FieldId.EMPLOYMENT_TYPE, spoken_answer)
-        == expected_type
+        normalise_and_validate(FieldId.EMPLOYMENT_TYPE, spoken_answer) == expected_type
     )
 
 

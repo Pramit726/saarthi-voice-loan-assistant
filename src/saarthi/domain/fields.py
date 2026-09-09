@@ -285,7 +285,9 @@ def _normalise_contact(value: Any) -> str:
     text = _clean_text(value).casefold()
     phone = bool(re.search(r"\b(?:call|phone|telephone|voice)\b", text))
     email = bool(
-        re.search(r"\b(?:e[ -]?mail|mail|gmail|written(?: message| follow-up)?)\b", text)
+        re.search(
+            r"\b(?:e[ -]?mail|mail|gmail|written(?: message| follow-up)?)\b", text
+        )
     )
     if phone and email:
         raise ValueError("Please choose only one contact preference: phone or email.")
@@ -309,9 +311,11 @@ _CITY_PREFIXES: tuple[re.Pattern[str], ...] = (
 
 
 def _city_key(value: str) -> str:
-    ascii_value = unicodedata.normalize("NFKD", value.casefold()).encode(
-        "ascii", "ignore"
-    ).decode("ascii")
+    ascii_value = (
+        unicodedata.normalize("NFKD", value.casefold())
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
     return " ".join(re.findall(r"[a-z]+", ascii_value))
 
 

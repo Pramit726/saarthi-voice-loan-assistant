@@ -162,8 +162,7 @@ class ResponsePlanner:
             )
         else:
             message = (
-                f"I understood your {field_label} as {candidate}. "
-                "Should I record that?"
+                f"I understood your {field_label} as {candidate}. Should I record that?"
             )
         plan = ResponsePlan(
             purpose="confirm_resolved_candidate",
@@ -204,7 +203,9 @@ class ResponsePlanner:
             purpose="clarify_invalid_field",
             message_segments=messages.get(
                 field_id,
-                ["I could not validate that answer. Please answer the current question again."],
+                [
+                    "I could not validate that answer. Please answer the current question again."
+                ],
             ),
             resume_instruction=FIELD_DEFINITIONS[field_id].prompt,
             fallback_code="invalid_structured_field",

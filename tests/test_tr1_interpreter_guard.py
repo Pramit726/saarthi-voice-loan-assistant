@@ -218,9 +218,7 @@ async def test_fuzzy_city_is_proposed_for_confirmation_without_llm(
     conversation.pending_field = FieldId.CITY
     interpreter = RetrievedFewShotInterpreter(client=None)  # type: ignore[arg-type]
 
-    result = await interpreter.interpret(
-        transcript_factory("Bangaloroo"), conversation
-    )
+    result = await interpreter.interpret(transcript_factory("Bangaloroo"), conversation)
 
     assert result.route is TurnRoute.CLARIFICATION
     assert result.target_field is FieldId.CITY
@@ -254,9 +252,7 @@ def test_short_unrelated_purpose_is_rejected_before_llm(
     assert result.rationale_code == "invalid_structured_field"
 
 
-def test_model_derived_purpose_requires_confirmation(
-    transcript_factory, conversation
-):
+def test_model_derived_purpose_requires_confirmation(transcript_factory, conversation):
     conversation.pending_field = FieldId.LOAN_PURPOSE
 
     result = RetrievedFewShotInterpreter._guard(
@@ -311,7 +307,9 @@ async def test_failed_local_semantic_match_clarifies_without_llm(
 ):
     class FailingClient:
         async def interpret(self, **kwargs):
-            raise AssertionError("LLM should not be called for an unmatched bounded field")
+            raise AssertionError(
+                "LLM should not be called for an unmatched bounded field"
+            )
 
     class EmptyResolver:
         async def resolve(self, field_id, text):
